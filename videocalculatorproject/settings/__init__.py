@@ -1,0 +1,4 @@
+"""
+Settings package for videocalculatorproject.
+"""
+

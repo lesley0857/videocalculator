@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Narration & Speech Timing Test | Talking Flyer Calculator{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/calculator.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="calc-page-header">
+    <nav class="breadcrumb" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+        <a href="{% url 'home' %}" style="color: var(--text-muted); text-decoration: none;">Home</a> &rsaquo;
+        <a href="{% url 'calculators:index' %}" style="color: var(--text-muted); text-decoration: none;">Calculators</a> &rsaquo;
+        <span style="color: var(--text-color);">Talking Flyer Narration Test</span>
+    </nav>
+    <h1>Talking Flyer Narration & Speech Timing</h1>
+    <p class="lead">
+        Input your promotional script or flyer narration to calculate live word counts and estimate natural speaking duration across standard and custom delivery speeds.
+    </p>
+</div>
+
+<div class="calc-grid">
+    <!-- Left Column: Input and Speed Settings -->
+    <div class="calc-inputs-column">
+        <!-- Error Banner -->
+        <div id="errorBanner" class="error-banner" role="alert" aria-live="assertive"></div>
+
+        <!-- Narration Text Card -->
+        <section class="calc-card" aria-labelledby="narrationCardTitle">
+            <div class="calc-card-title" id="narrationCardTitle">
+                <span>Narration Script</span>
+                <span id="liveWordPill" class="counter-badge">0 words</span>
+            </div>
+
+            <div class="textarea-container">
+                <textarea
+                    id="narrationText"
+                    class="narration-textarea"
+                    placeholder="Type or paste your talking flyer narration script here...&#10;&#10;e.g. Welcome to our grand opening! Discover incredible savings on our latest collection and receive an exclusive gift with your first visit."
+                    aria-label="Narration text input"
+                    spellcheck="true"
+                ></textarea>
+            </div>
+
+            <div class="textarea-footer">
+                <span id="charCountDisplay">0 characters</span>
+                <button type="button" id="clearTextBtn" class="btn-secondary" title="Clear all narration text">
+                    Clear Text
+                </button>
+            </div>
+        </section>
+
+        <!-- Speaking Speed Card -->
+        <section class="calc-card" aria-labelledby="speedCardTitle">
+            <div class="calc-card-title" id="speedCardTitle">
+                <span>Speaking Speed (WPM)</span>
+                <span id="selectedWpmPill" class="counter-badge">{{ default_wpm }} WPM</span>
+            </div>
+
+            <div class="speed-preset-grid" role="radiogroup" aria-label="Speaking speed presets">
+                {% for preset in speed_presets %}
+                <label class="speed-option-label {% if preset.wpm == default_wpm %}active{% endif %}" id="label-preset-{{ preset.key }}">
+                    <div class="speed-option-left">
+                        <input
+                            type="radio"
+                            name="speed_preset"
+                            value="{{ preset.wpm }}"
+                            data-key="{{ preset.key }}"
+                            {% if preset.wpm == default_wpm %}checked{% endif %}
+                        >
+                        <div class="speed-option-info">
+                            <span class="speed-option-name">{{ preset.label }}</span>
+                            <span class="speed-option-desc">{{ preset.description }}</span>
+                        </div>
+                    </div>
+                    <span class="speed-badge">{{ preset.wpm }} WPM</span>
+                </label>
+                {% endfor %}
+
+                <!-- Custom Option Radio -->
+                <label class="speed-option-label" id="label-preset-custom">
+                    <div class="speed-option-left">
+                        <input
+                            type="radio"
+                            name="speed_preset"
+                            value="custom"
+                            data-key="custom"
+                        >
+                        <div class="speed-option-info">
+                            <span class="speed-option-name">Custom Delivery Speed</span>
+                            <span class="speed-option-desc">Enter any custom pace between {{ min_wpm }} and {{ max_wpm }} WPM</span>
+                        </div>
+                    </div>
+                    <span class="speed-badge">Custom</span>
+                </label>
+            </div>
+
+            <!-- Custom Numeric Input Drawer -->
+            <div id="customSpeedDrawer" class="custom-speed-box hidden">
+                <label for="customWpmInput" style="font-weight: 600; font-size: 0.9rem;">
+                    Enter Custom Pace:
+                </label>
+                <div class="custom-input-group">
+                    <input
+                        type="number"
+                        id="customWpmInput"
+                        class="custom-wpm-input"
+                        min="{{ min_wpm }}"
+                        max="{{ max_wpm }}"
+                        step="1"
+                        placeholder="140"
+                        aria-label="Custom words per minute"
+                    >
+                    <span style="font-weight: 500; color: var(--text-muted); font-size: 0.9rem;">
+                        words per minute ({{ min_wpm }} – {{ max_wpm }})
+                    </span>
+                </div>
+                <div id="customSpeedError" style="font-size: 0.8rem; color: #dc2626; margin-top: 0.35rem; display: none;"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Right Column: Live Results and Educational Breakdown -->
+    <div class="calc-results-column">
+        <section class="calc-card results-card" aria-labelledby="resultsCardTitle">
+            <div class="calc-card-title" id="resultsCardTitle">
+                <span>Timing Analysis</span>
+                <span id="calculationStatusBadge" class="results-status-badge status-ready">Ready</span>
+            </div>
+
+            <!-- Hero Duration Box -->
+            <div class="hero-duration-box">
+                <div class="hero-duration-label">Estimated Speech Duration</div>
+                <div id="heroDurationDisplay" class="hero-duration-value">00:00</div>
+                <div id="heroDurationReadable" class="hero-duration-readable">0 seconds</div>
+            </div>
+
+            <!-- Metrics Breakdown Grid -->
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-label">Total Words</div>
+                    <div class="metric-value">
+                        <span id="metricWordCount">0</span>
+                        <span class="metric-unit">words</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Speaking Speed</div>
+                    <div class="metric-value">
+                        <span id="metricWpm">{{ default_wpm }}</span>
+                        <span class="metric-unit">WPM</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Total Seconds</div>
+                    <div class="metric-value">
+                        <span id="metricSeconds">0.00</span>
+                        <span class="metric-unit">s</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Decimal Minutes</div>
+                    <div class="metric-value">
+                        <span id="metricMinutes">0.00</span>
+                        <span class="metric-unit">min</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Explanation -->
+            <div class="formula-box">
+                <h4>Calculation Formula</h4>
+                <div class="formula-code">Estimated Duration = (Word Count &divide; WPM) &times; 60</div>
+                <p class="formula-example" id="formulaExampleText">
+                    Example: 150 words at 150 WPM = (150 &divide; 150) &times; 60 = 60.0 seconds (1 minute 0 seconds).
+                </p>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- Hidden CSRF token for JavaScript fetch -->
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/narration.js' %}"></script>
+{% endblock %}
+

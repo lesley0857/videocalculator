@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Universal Clip Planner & Narration Segmenter | Talking Flyer Calculator{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/calculator.css' %}">
+<link rel="stylesheet" href="{% static 'css/clip_planner.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="calc-page-header">
+    <nav class="breadcrumb" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+        <a href="{% url 'home' %}" style="color: var(--text-muted); text-decoration: none;">Home</a> &rsaquo;
+        <a href="{% url 'calculators:index' %}" style="color: var(--text-muted); text-decoration: none;">Calculators</a> &rsaquo;
+        <a href="{% url 'calculators:talking-flyer-narration-test' %}" style="color: var(--text-muted); text-decoration: none;">Narration Timing</a> &rsaquo;
+        <span style="color: var(--text-color);">Universal Clip Planner</span>
+    </nav>
+    <h1>Universal Clip Planning & Narration Segmentation</h1>
+    <p class="lead">
+        Provider-independent clip planning engine. Computes the optimal combination and sequence of video clip durations to accommodate narration scripts with whole-word capacity guarantees and sentence-boundary preservation.
+    </p>
+</div>
+
+<div class="calc-grid">
+    <!-- Left Column: Narration, Speed, and Clip Configurations -->
+    <div class="calc-inputs-column">
+        <!-- Error Banner -->
+        <div id="errorBanner" class="error-banner" role="alert" aria-live="assertive"></div>
+
+        <!-- Narration Script Input Card -->
+        <section class="calc-card" aria-labelledby="narrationCardTitle">
+            <div class="calc-card-title" id="narrationCardTitle">
+                <span>1. Narration Script</span>
+                <span id="liveWordPill" class="counter-badge">0 words</span>
+            </div>
+
+            <div class="textarea-container">
+                <textarea
+                    id="narrationText"
+                    class="narration-textarea"
+                    placeholder="Enter or paste your promotional narration script here...&#10;&#10;e.g. Welcome to our premier showcase! Discover innovative solutions designed to accelerate your growth. Every product is engineered with precision, backed by our dedicated support team, and ready to deploy immediately. Start your journey with us today and transform your business."
+                    aria-label="Narration text input"
+                    spellcheck="true"
+                ></textarea>
+            </div>
+
+            <div class="textarea-footer">
+                <span id="charCountDisplay">0 characters</span>
+                <button type="button" id="clearTextBtn" class="btn-secondary" title="Clear narration text">
+                    Clear Text
+                </button>
+            </div>
+        </section>
+
+        <!-- Speaking Speed Card -->
+        <section class="calc-card" aria-labelledby="speedCardTitle">
+            <div class="calc-card-title" id="speedCardTitle">
+                <span>2. Speaking Speed (WPM)</span>
+                <span id="selectedWpmPill" class="counter-badge">{{ default_wpm }} WPM</span>
+            </div>
+
+            <div class="speed-preset-grid" role="radiogroup" aria-label="Speaking speed presets">
+                {% for preset in speed_presets %}
+                <label class="speed-option-label {% if preset.wpm == default_wpm %}active{% endif %}" id="label-preset-{{ preset.key }}">
+                    <div class="speed-option-left">
+                        <input
+                            type="radio"
+                            name="speed_preset"
+                            value="{{ preset.wpm }}"
+                            data-key="{{ preset.key }}"
+                            {% if preset.wpm == default_wpm %}checked{% endif %}
+                        >
+                        <div class="speed-option-info">
+                            <span class="speed-option-name">{{ preset.label }}</span>
+                            <span class="speed-option-desc">{{ preset.description }}</span>
+                        </div>
+                    </div>
+                    <span class="speed-badge">{{ preset.wpm }} WPM</span>
+                </label>
+                {% endfor %}
+
+                <label class="speed-option-label" id="label-preset-custom">
+                    <div class="speed-option-left">
+                        <input
+                            type="radio"
+                            name="speed_preset"
+                            value="custom"
+                            data-key="custom"
+                        >
+                        <div class="speed-option-info">
+                            <span class="speed-option-name">Custom Delivery Speed</span>
+                            <span class="speed-option-desc">Enter any pace between {{ min_wpm }} and {{ max_wpm }} WPM</span>
+                        </div>
+                    </div>
+                    <span class="speed-badge">Custom</span>
+                </label>
+            </div>
+
+            <div id="customSpeedDrawer" class="custom-speed-box hidden">
+                <label for="customWpmInput" style="font-weight: 600; font-size: 0.9rem;">
+                    Enter Custom Pace:
+                </label>
+                <div class="custom-input-group">
+                    <input
+                        type="number"
+                        id="customWpmInput"
+                        class="custom-wpm-input"
+                        min="{{ min_wpm }}"
+                        max="{{ max_wpm }}"
+                        step="1"
+                        placeholder="140"
+                        aria-label="Custom words per minute"
+                    >
+                    <span style="font-weight: 500; color: var(--text-muted); font-size: 0.9rem;">
+                        WPM ({{ min_wpm }} – {{ max_wpm }})
+                    </span>
+                </div>
+                <div id="customSpeedError" style="font-size: 0.8rem; color: #dc2626; margin-top: 0.35rem; display: none;"></div>
+            </div>
+        </section>
+
+        <!-- Available Clip Durations Card -->
+        <section class="calc-card" aria-labelledby="clipOptionsTitle">
+            <div class="planner-controls-header">
+                <span class="calc-card-title" id="clipOptionsTitle" style="margin-bottom: 0;">
+                    3. Available Clip Durations
+                </span>
+                <span id="selectedClipsPill" class="counter-badge">6 options active</span>
+            </div>
+            <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                Select available model durations and optional reserved allowances for transitions or visuals.
+            </p>
+
+            <div class="durations-config-box">
+                <div class="durations-action-bar">
+                    <button type="button" id="btnSelectAllClips" class="planner-link-btn">Select All</button>
+                    <span>&bull;</span>
+                    <button type="button" id="btnClearAllClips" class="planner-link-btn">Clear All</button>
+                    <span>&bull;</span>
+                    <button type="button" id="btnRestoreDefaultClips" class="planner-link-btn">Restore Defaults</button>
+                </div>
+
+                <div id="clipOptionsList" class="clip-options-list">
+                    <!-- Populated dynamically by clip_planner.js -->
+                </div>
+
+                <!-- Custom Duration Adder -->
+                <div class="custom-duration-adder">
+                    <input
+                        type="number"
+                        id="newCustomDurationInput"
+                        class="custom-dur-input"
+                        placeholder="e.g. 12"
+                        min="{{ min_clip_duration }}"
+                        max="{{ max_clip_duration }}"
+                        step="1"
+                        aria-label="New custom duration in seconds"
+                    >
+                    <button type="button" id="btnAddCustomDuration" class="btn-sm-primary">
+                        + Add Custom Duration
+                    </button>
+                    <span style="font-size: 0.775rem; color: var(--text-muted);">
+                        ({{ min_clip_duration }}s – {{ max_clip_duration }}s)
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Advanced Segmentation Settings (Collapsible) -->
+        <div class="advanced-settings-accordion">
+            <div id="advancedSettingsHeader" class="advanced-settings-header" role="button" aria-expanded="false">
+                <span>Advanced Segmentation Preferences</span>
+                <span id="advancedAccordionIcon">&plus;</span>
+            </div>
+            <div id="advancedSettingsBody" class="advanced-settings-body hidden">
+                <div class="form-toggle-row">
+                    <div>
+                        <div class="form-toggle-label">Prefer Sentence Boundaries</div>
+                        <div class="form-toggle-desc">
+                            Ends clips on full stops, question marks, or exclamation marks when feasible without adding extra clips.
+                        </div>
+                    </div>
+                    <input type="checkbox" id="prefSentenceBoundary" checked style="width: 1.15rem; height: 1.15rem; accent-color: var(--primary-color);">
+                </div>
+
+                <div class="form-toggle-row" style="margin-bottom: 0;">
+                    <div>
+                        <div class="form-toggle-label">Sentence Scan Tolerance Window</div>
+                        <div class="form-toggle-desc">
+                            Fraction of clip capacity to scan for sentence ends (default 20%).
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        <input
+                            type="number"
+                            id="sentenceToleranceInput"
+                            class="custom-dur-input"
+                            value="20"
+                            min="5"
+                            max="50"
+                            step="5"
+                            style="width: 70px; text-align: right;"
+                        >
+                        <span style="font-size: 0.85rem; font-weight: 500;">%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary Actions -->
+        <div class="action-buttons-group">
+            <button type="button" id="btnCalculatePlan" class="btn-calc-main">
+                <span>Calculate Clip Plan</span>
+            </button>
+            <button type="button" id="btnResetAll" class="btn-reset-form" title="Reset all inputs to defaults">
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- Right Column: Results, Timeline, and Segments -->
+    <div class="calc-results-column">
+        <!-- Results Summary Card -->
+        <section class="calc-card results-card" aria-labelledby="planSummaryTitle">
+            <div class="calc-card-title" id="planSummaryTitle">
+                <span>Plan Summary</span>
+                <span id="planStatusBadge" class="results-status-badge status-ready">Ready</span>
+            </div>
+
+            <!-- Hero Plan Metrics Box -->
+            <div class="hero-duration-box">
+                <div class="hero-duration-label">Required Video Clips</div>
+                <div id="heroClipCount" class="hero-duration-value">0</div>
+                <div id="heroDurationSubtitle" class="hero-duration-readable">0.00s generated video (0.00s speech)</div>
+            </div>
+
+            <!-- Metrics Breakdown Grid -->
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-label">Narration Words</div>
+                    <div class="metric-value">
+                        <span id="metricNarrationWords">0</span>
+                        <span class="metric-unit">words</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Overall Utilisation</div>
+                    <div class="metric-value">
+                        <span id="metricOverallUtil">0.00</span>
+                        <span class="metric-unit">%</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Total Generated Duration</div>
+                    <div class="metric-value">
+                        <span id="metricTotalGenerated">0.00</span>
+                        <span class="metric-unit">s</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Total Unused Time</div>
+                    <div class="metric-value">
+                        <span id="metricTotalUnused">0.00</span>
+                        <span class="metric-unit">s</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Avg Words / Clip</div>
+                    <div class="metric-value">
+                        <span id="metricAvgWords">0.00</span>
+                    </div>
+                </div>
+
+                <div class="metric-item">
+                    <div class="metric-label">Avg Clip Duration</div>
+                    <div class="metric-value">
+                        <span id="metricAvgDuration">0.00</span>
+                        <span class="metric-unit">s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Clip Sequence Timeline -->
+            <div class="visual-timeline-section">
+                <div class="calc-card-title" style="font-size: 1rem; margin-bottom: 0.5rem;">
+                    <span>Visual Clip Sequence</span>
+                </div>
+                <div id="timelineContainer" class="timeline-scroll-container">
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">
+                        No plan generated yet. Enter narration text to preview clip timeline.
+                    </span>
+                </div>
+            </div>
+
+            <!-- Individual Segments List -->
+            <div class="segment-breakdown-section">
+                <div class="calc-card-title" style="font-size: 1rem; margin-bottom: 0.75rem;">
+                    <span>Narration Segments Breakdown</span>
+                </div>
+                <div id="segmentsListContainer" class="segment-cards-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Reconstructed Narration Integrity Card -->
+            <div class="reconstruction-card">
+                <div class="reconstruction-header">
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-color);">
+                        Full Reconstructed Narration
+                    </span>
+                    <span id="integrityBadge" class="results-status-badge status-ready" style="display: none;">
+                        100% Verified
+                    </span>
+                </div>
+                <div id="reconstructedTextView" class="reconstruction-text">
+                    (Reconstructed script will appear here once planned)
+                </div>
+            </div>
+
+            <!-- Export Toolbar -->
+            <div class="export-toolbar">
+                <button type="button" id="btnCopyPlanJson" class="btn-export">
+                    <span>📋 Copy Plan (JSON)</span>
+                </button>
+                <button type="button" id="btnCopySegmentsText" class="btn-export">
+                    <span>📄 Copy Script Segments</span>
+                </button>
+                <button type="button" id="btnDownloadJson" class="btn-export">
+                    <span>💾 Download JSON</span>
+                </button>
+                <button type="button" id="btnDownloadCsv" class="btn-export">
+                    <span>📊 Download CSV</span>
+                </button>
+            </div>
+
+            <!-- Optimization Rules Documentation -->
+            <div class="formula-box" style="margin-top: 1.25rem;">
+                <h4>Universal Optimization Principles</h4>
+                <div class="formula-code">1. Min Clips &rarr; 2. Min Generated Time &rarr; 3. Min Reserved &rarr; 4. Longer Clips First</div>
+                <p class="formula-example">
+                    Dynamic programming calculates the global minimum clip count for exact whole-word capacities. Sentence boundary scanning snaps segment ends to punctuation within the configured tolerance window.
+                </p>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- Toast notification popup -->
+<div id="plannerToast" class="planner-toast" role="status" aria-live="polite"></div>
+
+<!-- Hidden CSRF token for JavaScript fetch -->
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/clip_planner.js' %}"></script>
+{% endblock %}
+
