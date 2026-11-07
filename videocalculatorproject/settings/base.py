@@ -25,8 +25,12 @@ SECRET_KEY = os.getenv(
 DEBUG = False
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv(
-    'ALLOWED_HOSTS', 'localhost,127.0.0.1,videocalculator.onrender.com').split(',') if host.strip()]
+    'ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
 
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://videocalculator.onrender.com",
+]
 
 # Application definition
 

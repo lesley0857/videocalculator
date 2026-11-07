@@ -7,12 +7,14 @@ from .base import *
 
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in os.getenv(
+    'ALLOWED_HOSTS', 'videocalculator.onrender.com,localhost,127.0.0.1,0.0.0.0').split(',') if host.strip()]
 
 # Database configuration:
 # Defaults safely to SQLite for seamless local onboarding if PostgreSQL is not active.
 # Set USE_POSTGRES=True in .env to connect to local/remote PostgreSQL.
-USE_POSTGRES = os.getenv('USE_POSTGRES', 'False').lower() in ('true', '1', 'yes')
+USE_POSTGRES = os.getenv(
+    'USE_POSTGRES', 'False').lower() in ('true', '1', 'yes')
 
 if USE_POSTGRES:
     DATABASES = {
@@ -35,4 +37,3 @@ else:
 
 # Email backend for development - print to console
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
