@@ -33,3 +33,9 @@ class HomeViewTests(TestCase):
         self.assertContains(response, "Talking Flyer Calculator")
         self.assertContains(response, "AI Video Generation Calculator")
 
+
+class AdminLoginPageTests(TestCase):
+    def test_admin_login_page_renders_for_anonymous_visitors(self):
+        response = self.client.get(reverse('admin:login'))
+        self.assertEqual(response.status_code, 200)
+
