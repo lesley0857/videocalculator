@@ -12,14 +12,65 @@ DEBUG = False
 # Allowed hosts MUST be set in production via environment variable
 allowed_hosts_str = os.getenv('ALLOWED_HOSTS', '')
 if not allowed_hosts_str:
-    raise ValueError("ALLOWED_HOSTS environment variable must be set in production.")
+    raise ValueError(
+        "ALLOWED_HOSTS environment variable must be set in production.")
 ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
 
 # Secret key MUST be explicitly provided from environment in production
 secret_key_env = os.getenv('SECRET_KEY')
 if not secret_key_env or secret_key_env.startswith('django-insecure'):
-    raise ValueError("A secure SECRET_KEY must be provided in production via environment variable.")
+    raise ValueError(
+        "A secure SECRET_KEY must be provided in production via environment variable.")
 SECRET_KEY = secret_key_env
+
+# Django's default production request handler emails errors to ADMINS and
+# filters console output to DEBUG=True. Render needs request tracebacks on its
+# captured stdout/stderr streams while DEBUG remains disabled.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'production': {
+            'format': '{asctime} {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'INFO',
+            'stream': 'ext://sys.stdout',
+            'formatter': 'production',
+        },
+        'error_console': {
+            'class': 'logging.StreamHandler',
+            'level': 'ERROR',
+            'stream': 'ext://sys.stderr',
+            'formatter': 'production',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['error_console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['error_console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 
 # Production must use the PostgreSQL URL configured by the hosting environment.
 database_url = os.getenv('DATABASE_URL')
@@ -74,11 +125,13 @@ STORAGES = {
 }
 
 # Production Email backend (SMTP or external service configured via env)
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+EMAIL_USE_TLS = os.getenv(
+    'EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@videocalculator.com')
-
+DEFAULT_FROM_EMAIL = os.getenv(
+    'DEFAULT_FROM_EMAIL', 'noreply@videocalculator.com')

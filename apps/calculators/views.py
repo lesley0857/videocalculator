@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -27,6 +28,8 @@ from apps.pricing.models import CostEstimate
 from apps.pricing.services import estimate_production_cost, prepare_estimate_inputs
 from apps.workspace.models import Project
 from apps.workspace.services import create_project
+
+logger = logging.getLogger(__name__)
 
 
 class CalculatorPlaceholderView(View):
@@ -201,6 +204,7 @@ class NarrationCalculateApiView(View):
                 status=400,
             )
         except Exception:
+            logger.exception('Unexpected narration calculation failure.')
             return JsonResponse(
                 {
                     'success': False,
@@ -306,6 +310,7 @@ class ClipPlannerCalculateApiView(View):
                 status=400,
             )
         except Exception:
+            logger.exception('Unexpected clip planning failure.')
             return JsonResponse(
                 {
                     'success': False,

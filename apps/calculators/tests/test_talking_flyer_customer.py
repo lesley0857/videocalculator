@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -76,6 +77,45 @@ class TalkingFlyerCustomerFlowTests(TestCase):
         self.assertEqual(plan.status_code, 200, plan.content.decode())
         self.assertTrue(plan.json()['validation']['is_valid'])
         self.assertEqual(plan.json()['clips'][0]['narration_text'], 'Hello there, buy now.')
+
+    def test_unexpected_narration_exception_is_logged_but_response_stays_generic(self):
+        with patch(
+            'apps.calculators.views.calculate_narration',
+            side_effect=RuntimeError('synthetic private failure'),
+        ):
+            with self.assertLogs('apps.calculators.views', level='ERROR') as captured:
+                response = self.client.post(
+                    reverse('calculators:narration-calculate-api'),
+                    {'text': 'Hello', 'wpm': 120},
+                )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response.json()['error'],
+            'An unexpected error occurred during calculation.',
+        )
+        self.assertIn('Traceback (most recent call last):', captured.output[0])
+        self.assertIn('synthetic private failure', captured.output[0])
+
+    def test_unexpected_clip_planning_exception_is_logged_but_response_stays_generic(self):
+        with patch(
+            'apps.calculators.views.UniversalClipPlanningEngine.calculate',
+            side_effect=RuntimeError('synthetic private failure'),
+        ):
+            with self.assertLogs('apps.calculators.views', level='ERROR') as captured:
+                response = self.client.post(
+                    reverse('calculators:clip-planner-calculate-api'),
+                    data=json.dumps({'narration': 'Hello', 'wpm': 120}),
+                    content_type='application/json',
+                )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response.json()['error'],
+            'An unexpected error occurred during clip planning.',
+        )
+        self.assertIn('Traceback (most recent call last):', captured.output[0])
+        self.assertIn('synthetic private failure', captured.output[0])
 
     def test_specialty_selection_estimate_and_anonymous_save_return_flow(self):
         response = self.client.get(reverse('video_registry:specialty-providers', args=[self.specialty.slug]))
