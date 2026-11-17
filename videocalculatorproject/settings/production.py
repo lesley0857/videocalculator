@@ -3,6 +3,7 @@ Production settings for videocalculatorproject.
 """
 
 import os
+from psycopg.conninfo import conninfo_to_dict
 from .base import *
 
 DEBUG = False
@@ -19,22 +20,46 @@ if not secret_key_env or secret_key_env.startswith('django-insecure'):
     raise ValueError("A secure SECRET_KEY must be provided in production via environment variable.")
 SECRET_KEY = secret_key_env
 
-# Strictly enforce PostgreSQL in production
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'videocalculator_prod'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+# Render exposes managed PostgreSQL connection details as DATABASE_URL. Keep
+# support for the existing DB_* configuration used by manual deployments.
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    database_options = conninfo_to_dict(database_url)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': database_options.pop('dbname', ''),
+            'USER': database_options.pop('user', ''),
+            'PASSWORD': database_options.pop('password', ''),
+            'HOST': database_options.pop('host', ''),
+            'PORT': database_options.pop('port', ''),
+            'OPTIONS': database_options,
+            'CONN_MAX_AGE': 600,
+            'CONN_HEALTH_CHECKS': True,
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'videocalculator_prod'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
 
 # Security hardening
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Render terminates public TLS at its edge and forwards the original scheme.
+# Trust the header only on Render so Django's HTTPS redirect and secure-cookie
+# settings see the external request as HTTPS.
+if os.getenv('RENDER_EXTERNAL_HOSTNAME'):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 if os.getenv('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1', 'yes'):
     SECURE_SSL_REDIRECT = True

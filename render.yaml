@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: videocalculator
+    runtime: python
+    buildCommand: bash build.sh
+    startCommand: gunicorn videocalculatorproject.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: videocalculatorproject.settings.production
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: videocalculator.onrender.com
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
