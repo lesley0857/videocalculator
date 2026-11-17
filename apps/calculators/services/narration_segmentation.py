@@ -16,16 +16,50 @@ from apps.calculators.services.clip_planning import ClipOption
 _TWO_DP = Decimal("0.01")
 _SIXTY = Decimal("60")
 
-# Sentence boundary regex recognizing terminal punctuation with optional trailing quotes
-SENTENCE_END_RE = re.compile(r'(\.|\?|!|\.\.\.)["\')\]]?$')
+# Known abbreviations and honorifics that should not trigger sentence boundaries
+COMMON_ABBREVIATIONS = {
+    "mr.", "mrs.", "ms.", "dr.", "prof.", "sr.", "jr.", "rev.", "hon.",
+    "vs.", "etc.", "e.g.", "i.e.", "ltd.", "inc.", "co.", "corp.",
+    "st.", "ave.", "blvd.", "dept.", "est.", "approx.", "govt.",
+}
+
+# Regex for single-letter initial (e.g. "J." in "J. Doe")
+INITIAL_RE = re.compile(r'^[A-Za-z]\.$')
+
+# Regex for numbered list prefixes (e.g. "1.", "10.")
+LIST_NUMBER_RE = re.compile(r'^\d+\.$')
+
+# Sentence boundary regex recognizing terminal punctuation with optional trailing quotes/brackets
+# Supports '.', '..', '...', '?', '!', combinations like '?!', '!?', '!!', '???',
+# followed by optional closing quotation marks/brackets
+SENTENCE_END_RE = re.compile(r'(?:\.{1,3}|[!?]+)["\'’”\)\]\}]*$')
 
 
 def is_sentence_end_word(token: str) -> bool:
     """
     Checks if a token ends with sentence-terminating punctuation.
+    Excludes common abbreviations, single-letter initials, and numbered list items.
     """
     if not token:
         return False
+
+    # Strip closing punctuation and brackets to inspect the core token
+    core_token = token.rstrip("\"'’”)]}")
+    if not core_token:
+        return False
+
+    # Check against known abbreviations (case-insensitive)
+    if core_token.lower() in COMMON_ABBREVIATIONS:
+        return False
+
+    # Check for single-letter initials
+    if INITIAL_RE.match(core_token):
+        return False
+
+    # Check for numbered list items
+    if LIST_NUMBER_RE.match(core_token):
+        return False
+
     return bool(SENTENCE_END_RE.search(token))
 
 

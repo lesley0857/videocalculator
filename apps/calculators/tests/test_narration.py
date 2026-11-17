@@ -300,4 +300,5 @@ class NarrationWebEndpointTests(TestCase):
     def test_existing_calculators_index_route_still_works(self):
         response = self.client.get(reverse('calculators:index'))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'status': 'calculator_interface_ready'})
+        self.assertContains(response, 'Choose a planning tool')
+        self.assertContains(response, reverse('pricing:test-interface'))

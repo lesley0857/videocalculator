@@ -18,6 +18,8 @@ class ProjectSetupTests(SimpleTestCase):
             'apps.calculators',
             'apps.notifications',
             'apps.analytics',
+            'apps.video_registry',
+            'apps.pricing',
         ]
         for app in expected_apps:
             self.assertIn(app, settings.INSTALLED_APPS)

@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Talking Flyer Calculator{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/talking_flyer.css' %}">{% endblock %}
+{% block content %}
+<section class="tf-wrap" id="talking-flyer-calculator"
+  data-narration-url="{% url 'calculators:narration-calculate-api' %}"
+  data-clip-url="{% url 'calculators:clip-planner-calculate-api' %}"
+  data-estimate-url="{% url 'pricing:estimate' %}"
+  data-save-url="{% url 'calculators:talking-flyer-save-prepare' %}"
+  data-specialties-url="{% url 'video_registry:specialty-list' %}"
+  data-providers-url="/api/video-registry/specialties/__specialty__/providers/"
+  data-offerings-url="{% url 'video_registry:offering-list' %}"
+  data-plans-url="{% url 'video_registry:plan-list' %}"
+  data-routes-url="{% url 'video_registry:access-route-list' %}"
+  data-models-url="{% url 'video_registry:model-list' %}"
+  data-pricing-url="{% url 'pricing:pricing-list' %}"
+  data-capabilities-template="/api/video-registry/models/__provider__/__model__/capabilities/"
+  data-tools-url="{% url 'pricing:subscription-plans' %}"
+  data-authenticated="{{ authenticated|yesno:'true,false' }}">
+  <header class="tf-hero">
+    <p class="tf-eyebrow">Talking Flyer production planning</p>
+    <h1>Turn your script into a costed clip plan</h1>
+    <p>Estimate narration timing, arrange the script into individual video clips, choose only the production options you need, and review a clear project cost before production.</p>
+    {% if source_estimate %}<p class="tf-note">Starting with the script and clip assumptions from saved estimate {{ source_estimate.pk }}. Choose current provider and pricing options, then calculate again to create a new estimate.</p>{% endif %}
+  </header>
+  <nav class="tf-progress" aria-label="Calculator steps">
+    <ol><li class="is-current" data-progress="0"><span>1</span><b>Script &amp; clips</b></li><li data-progress="1"><span>2</span><b>Production choices</b></li><li data-progress="2"><span>3</span><b>Costs</b></li><li data-progress="3"><span>4</span><b>Review</b></li></ol>
+  </nav>
+  <div id="tf-message" class="tf-message" role="status" aria-live="polite"></div>
+
+  <section class="tf-step is-active" data-step="0" aria-labelledby="tf-script-title">
+    <div class="tf-card">
+      <div class="tf-section-title"><span>01</span><div><h2 id="tf-script-title">Your narration script</h2><p>Paste or write the words that will be spoken. Punctuation and word order are retained in the clip segments.</p></div></div>
+      <label for="tf-script">Script</label><textarea id="tf-script" rows="8" maxlength="50000" placeholder="Paste your promotional narration here…" aria-describedby="tf-script-help"></textarea>
+      <div class="tf-inline"><span id="tf-word-count" class="tf-count">0 words</span><button type="button" class="tf-link-button" id="tf-clear-script">Clear script</button></div>
+      <p class="tf-help" id="tf-script-help">Word count uses the calculator’s whitespace-separated word convention. The clip planner supports up to 50,000 words.</p>
+      <div class="tf-control-grid">
+        <div><label for="tf-wpm">Narration speed</label><select id="tf-wpm">{% for speed in wpm_presets %}<option value="{{ speed }}" {% if speed == default_wpm %}selected{% endif %}>{{ speed }} words per minute{% if speed == 135 %} · conversational{% endif %}</option>{% endfor %}<option value="custom">Custom speed</option></select></div>
+        <div id="tf-custom-wpm-wrap" hidden><label for="tf-custom-wpm">Custom WPM ({{ min_wpm }}–{{ max_wpm }})</label><input id="tf-custom-wpm" type="number" min="{{ min_wpm }}" max="{{ max_wpm }}" step="1" value="150"></div>
+      </div>
+      <button type="button" class="tf-button tf-button-secondary" id="tf-time-script">Calculate narration timing</button>
+      <div class="tf-timing-result" id="tf-timing" hidden aria-live="polite"></div>
+    </div>
+    <div class="tf-card">
+      <div class="tf-section-title"><span>02</span><div><h2>Choose clip lengths</h2><p>The planner selects a sequence from the durations you allow. It uses the server-side capacity and sentence-boundary rules.</p></div></div>
+      <fieldset class="tf-duration-list"><legend>Available generated clip durations</legend>
+        {% for duration in standard_durations %}<label><input type="checkbox" name="tf-duration" value="{{ duration }}" checked><span>{{ duration }} seconds</span></label>{% endfor %}
+      </fieldset>
+      <div class="tf-control-grid">
+        <div><label for="tf-custom-duration">Add a custom duration ({{ min_clip_duration }}–{{ max_clip_duration }} seconds)</label><div class="tf-inline"><input id="tf-custom-duration" type="number" min="{{ min_clip_duration }}" max="{{ max_clip_duration }}" step="1" placeholder="e.g. 12"><button type="button" class="tf-button tf-button-small" id="tf-add-duration">Add duration</button></div></div>
+        <div><label for="tf-reserved">Seconds reserved in each clip (optional)</label><input id="tf-reserved" type="number" min="0" step="0.01" value="0"></div>
+      </div>
+      <button type="button" class="tf-button" id="tf-plan-clips" disabled>Plan clips and script segments</button>
+      <div id="tf-plan-summary" class="tf-plan-summary" hidden></div>
+      <div id="tf-clips" class="tf-clips" aria-live="polite"></div>
+    </div>
+    <div class="tf-step-actions"><span></span><button type="button" class="tf-button" data-next disabled>Continue to production choices</button></div>
+  </section>
+
+  <section class="tf-step" data-step="1" aria-labelledby="tf-catalogue-title" hidden>
+    <div class="tf-card">
+      <div class="tf-section-title"><span>03</span><div><h2 id="tf-catalogue-title">Choose the production options you need</h2><p>Start with a specialty, then choose its provider, offering, access route, and model version. Every option comes from the active catalogue.</p></div></div>
+      <p class="tf-note">You do not need to select every specialty. Your own script does not add scriptwriting costs, and external narration is only included if you choose it.</p>
+      <div id="tf-specialty-choices" class="tf-specialty-choices">{% for specialty in specialties %}<label class="tf-specialty-chip"><input type="checkbox" value="{{ specialty.slug }}" data-name="{{ specialty.name }}"><span>{{ specialty.name }}</span></label>{% empty %}<p class="tf-empty">Production specialties have not been configured yet.</p>{% endfor %}</div>
+      <div id="tf-selection-groups" class="tf-selection-groups"></div>
+      <div id="tf-models-empty" class="tf-empty" hidden>Choose a specialty to see its active providers and offerings. Catalogue gaps are shown here; the calculator will not substitute a provider or price.</div>
+    </div>
+    <div class="tf-card">
+      <div class="tf-section-title"><span>04</span><div><h2>Optional production tools and services</h2><p>Choose only tools you expect to use. Configured subscriptions and usage rates are shown separately.</p></div></div>
+      <div id="tf-tool-options" class="tf-tool-options">{% if not catalogue_tools %}<p class="tf-empty">No active production tools are configured. You can continue without adding one.</p>{% endif %}</div>
+      <h3>Optional production services</h3><div class="tf-service-row"><label for="tf-service-options">Configured service</label><select id="tf-service-options"><option value="">Loading available services…</option></select><label for="tf-service-quantity">Quantity</label><input id="tf-service-quantity" type="number" min="0.001" step="0.001" value="1"><button type="button" class="tf-button tf-button-small" id="tf-add-service">Add service</button></div><ul id="tf-selected-services" class="tf-selected-list"></ul>
+    </div>
+    <div id="tf-clip-assignments" class="tf-card" hidden></div>
+    <div class="tf-step-actions"><button type="button" class="tf-button tf-button-ghost" data-back>Back to script and clips</button><button type="button" class="tf-button" data-next>Continue to cost assumptions</button></div>
+  </section>
+
+  <section class="tf-step" data-step="2" aria-labelledby="tf-cost-title" hidden>
+    <div class="tf-card">
+      <div class="tf-section-title"><span>05</span><div><h2 id="tf-cost-title">Project cost assumptions</h2><p>Choose currency and optional overheads. Prices and exchange rates are resolved and calculated by the server.</p></div></div>
+      <div class="tf-control-grid">
+        <div><label for="tf-currency">Estimate currency</label><select id="tf-currency">{% for currency in currencies %}<option value="{{ currency }}" {% if currency == 'USD' %}selected{% endif %}>{{ currency }}</option>{% endfor %}</select></div>
+        <div><label for="tf-markup">Markup (optional, %)</label><input id="tf-markup" type="number" min="0" max="10000" step="0.01" placeholder="Leave blank to skip selling price"></div>
+        <div><label for="tf-final-duration">Desired finished video length (seconds)</label><input id="tf-final-duration" type="number" min="0.001" step="0.01" placeholder="Uses planned usable footage"></div>
+        <div><label for="tf-project-hours">Production labour hours (optional)</label><input id="tf-project-hours" type="number" min="0" step="0.1" value="0"></div>
+      </div>
+      <h3>Add project overhead</h3><p class="tf-help">Use a configured rate or enter your own project amount. A manual amount is clearly marked as your estimate.</p>
+      <div class="tf-overhead-row"><label for="tf-overhead-category">Category</label><select id="tf-overhead-category">{% for value,label in overhead_categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select><label for="tf-overhead-rate">Configured rate</label><select id="tf-overhead-rate"><option value="">Manual amount</option></select><label for="tf-overhead-amount">Amount in selected currency</label><input id="tf-overhead-amount" type="number" min="0" step="0.01" placeholder="0.00"><label for="tf-overhead-name">Label (optional)</label><input id="tf-overhead-name" maxlength="160" placeholder="e.g. Electricity"><button type="button" class="tf-button tf-button-small" id="tf-add-overhead">Add overhead</button></div>
+      <ul id="tf-overheads" class="tf-selected-list"></ul>
+      <button type="button" class="tf-button tf-button-primary tf-calculate" id="tf-calculate-cost">Calculate production cost</button>
+      <div id="tf-cost-error" class="tf-alert" role="alert" hidden></div>
+      <div id="tf-cost-result" class="tf-cost-result" hidden></div>
+    </div>
+    <div class="tf-step-actions"><button type="button" class="tf-button tf-button-ghost" data-back>Back to production choices</button><button type="button" class="tf-button" data-next id="tf-review-next" disabled>Review estimate</button></div>
+  </section>
+
+  <section class="tf-step" data-step="3" aria-labelledby="tf-review-title" hidden>
+    <div class="tf-card">
+      <div class="tf-section-title"><span>06</span><div><h2 id="tf-review-title">Review and save</h2><p>Check the assumptions and cost breakdown. Saving stores the inputs and pricing result in project history.</p></div></div>
+      <div id="tf-review-summary"></div>
+      <button type="button" class="tf-button" id="tf-save-estimate" disabled>Save estimate to a project</button>
+      <p class="tf-help">{% if authenticated %}Choose an active project or create a new one on the next page.{% else %}You can calculate without an account. Sign in or create an account only when you choose to save.{% endif %}</p>
+    </div>
+    <div class="tf-step-actions"><button type="button" class="tf-button tf-button-ghost" data-back>Back to cost assumptions</button><button type="button" class="tf-button tf-button-secondary" id="tf-recalculate">Recalculate with current options</button></div>
+  </section>
+</section>
+{{ catalogue_tools|json_script:'tf-tools-data' }}
+{{ overheads|json_script:'tf-overheads-data' }}
+{{ starting_inputs|json_script:'tf-starting-data' }}
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/talking_flyer.js' %}" defer></script>{% endblock %}

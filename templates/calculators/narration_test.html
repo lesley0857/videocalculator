@@ -185,6 +185,7 @@
 
 <!-- Hidden CSRF token for JavaScript fetch -->
 {% csrf_token %}
+<p class="workspace-actions"><a id="continueToClipPlanner" href="{% url 'calculators:talking-flyer-clip-planner-test' %}">Continue to clip planning with this narration</a></p>
 {% endblock %}
 
 {% block extra_js %}

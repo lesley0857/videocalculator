@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Save Talking Flyer estimate{% endblock %}
+{% block content %}
+<section class="tf-wrap tf-save-page">
+  <p class="tf-eyebrow">Talking Flyer Calculator</p>
+  <h1>Save your estimate</h1>
+  <p>Your calculated result and the verified pricing assumptions used for it will be saved as a historical project record.</p>
+  {% if error %}<p class="tf-alert" role="alert">{{ error }}</p>{% endif %}
+  {% if not pending %}<p class="tf-alert" role="alert">There is no pending calculation to save. Return to the calculator and calculate an estimate first.</p><a class="tf-button" href="{% url 'calculators:talking-flyer' %}">Return to calculator</a>
+  {% else %}
+  {% if pending_result %}<div class="tf-card"><h2>Estimate to save</h2>{% if pending_result.status == 'incomplete' %}<p class="tf-alert">This estimate is incomplete. {{ pending_result.message|default:pending_result.errors|default:"Review the estimate details before relying on a total." }}</p>{% endif %}{% with commercial=pending_result.commercial %}{% if commercial %}<p><strong>Estimated production cost:</strong> {{ commercial.currency|default:"" }} {{ commercial.total_estimated_production_cost|default:"Not available" }}</p>{% endif %}{% endwith %}<p>The original calculation and catalogue snapshot will be kept with this estimate.</p></div>{% endif %}
+  <form method="post" class="tf-card tf-save-form">{% csrf_token %}
+    <fieldset><legend>Choose a project</legend>
+      {% if projects %}<label for="project-id">Existing active project</label><select id="project-id" name="project_id"><option value="">Create a new project instead</option>{% for project in projects %}<option value="{{ project.pk }}">{{ project.name }}</option>{% endfor %}</select>{% else %}<p>You do not have an active project yet. Enter a name below to create one.</p>{% endif %}
+      <label for="project-name">New project name</label><input id="project-name" name="project_name" maxlength="160" placeholder="e.g. Summer campaign flyer">
+    </fieldset>
+    <button type="submit" class="tf-button">Save estimate to project</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

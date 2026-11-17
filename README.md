@@ -37,7 +37,7 @@ The platform powers high-precision commercial calculator products:
 
 ## Architecture Principles
 
-- **Modular monolith.** Nine domain applications under `apps/`, each with clear ownership.
+- **Modular monolith.** Twelve domain applications under `apps/`, each with clear ownership.
 - **Service layer pattern.** Business logic lives in `services.py` modules. Views handle only HTTP concerns.
 - **Decoupled payment gateways.** Provider adapters (`apps/payments/gateways/`) implement `BasePaymentGateway` and are isolated from domain business logic.
 - **Decoupled calculation engines.** Engine classes (`apps/calculators/engines/`) implement `BaseCalculationEngine` and have no Django dependencies.
@@ -166,6 +166,7 @@ python manage.py runserver
 - Talking Flyer Narration Test Page: [http://127.0.0.1:8000/calculators/talking-flyer/narration-test/](http://127.0.0.1:8000/calculators/talking-flyer/narration-test/)
 - Universal Clip Planner Test Page: [http://127.0.0.1:8000/calculators/talking-flyer/clip-planner-test/](http://127.0.0.1:8000/calculators/talking-flyer/clip-planner-test/)
 - Django admin: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+- AI Video Registry API: `/api/video-registry/`
 
 ---
 
@@ -190,6 +191,85 @@ The platform provides a standalone, stateless speech timing and narration analys
 
 ## Universal Clip Planning Engine & Narration Segmenter (Task 004)
 
+## AI Video Provider, Model and Capability Registry (Task 005)
+
+The registry stores providers, separately versioned models, workflows, explicit
+capability states, evidence, and prior capability states. It ships with no
+fabricated provider/model records. See [docs/DOMAIN_CONTRACTS.md](docs/DOMAIN_CONTRACTS.md#5-ai-video-registry-and-task-006-integration)
+for identity and pricing integration contracts.
+
+Read-only endpoints include `/api/video-registry/providers/`,
+`/api/video-registry/models/?workflow=<workflow-slug>`,
+`/api/video-registry/models/?capability=<capability-key>`, and
+`/api/video-registry/models/<provider-slug>/<model-slug>/`. The registry root
+returns an API testing endpoint index.
+
+## AI Model Pricing and Production Cost Engine (Task 006)
+
+Effective-dated model and operation rates, subscriptions, credit packages, FX rates,
+and auditable estimate snapshots are maintained in Django Admin at
+`/admin/pricing/`. The development calculator is `/pricing/test/`; read-only pricing
+catalogue endpoints and the estimate API are under `/pricing/api/`. There are no
+commercial seed prices. See [Task 006 domain contracts](docs/DOMAIN_CONTRACTS.md#6-task-006-pricing-and-cost-contract)
+for currency conversion, credit allocation, retry, and pricing version rules.
+
+## User Workspace and Saved Estimate History (Task 007)
+
+Registered users can create private projects, calculate and save estimates under an
+active project, reopen historical snapshots, archive/restore projects, and compare
+estimates. Workspace and estimate APIs are owner-scoped; old unassigned Task 006
+estimates remain inaccessible to ordinary users. See the [Task 007 workspace
+contract](docs/DOMAIN_CONTRACTS.md#7-task-007-user-workspace-and-estimate-history).
+
+## Customer-facing calculator journey (Task 008)
+
+Public pages are available at `/products/` and `/calculators/`. Visitors can use
+the Talking Flyer narration tool at
+`/calculators/talking-flyer/narration-test/`, continue to the clip planner at
+`/calculators/talking-flyer/clip-planner-test/`, and open the AI video cost
+calculator at `/pricing/test/`. Narration text and speaking speed can be carried
+to clip planning in browser session storage. A clip plan carries its clip count
+and average duration into the cost form; mixed durations should be added as
+separate cost components and model choices remain the user's decision.
+
+Anonymous users can calculate estimates without saving them. To save a snapshot,
+sign in or register, create or select an active project, then calculate with that
+project selected. A save creates a new immutable estimate; prior snapshots remain
+available in the project history and can be compared or reused. Saved estimates
+are compared using Task 007's owner-scoped comparison service, which keeps
+different currencies separate and preserves their original FX snapshots.
+
+The cost calculator reads active providers and model versions from the video
+registry, lists workflows attached to that exact version, and loads current
+effective model/operation prices from the pricing APIs. Capability status and
+verification information come from the registry. The calculation itself remains
+in the Task 006 service and engine. Missing effective pricing or FX is reported
+as incomplete; the UI does not invent rates. The current engine does not support
+a contingency percentage, so no contingency amount is included.
+
+Before complete estimates are possible, an administrator must configure active
+providers, active versioned models, model/workflow relationships and capability
+evidence as appropriate, effective-dated model pricing, any optional operation
+rates, and exchange rates between pricing and output currencies. Credit-priced
+models may also require effective credit packages or a subscription plan and a
+user-supplied remaining-credit assumption. The development database is not
+seeded with commercial prices. Admin configuration is under `/admin/`.
+
+The estimate endpoint `POST /pricing/api/estimate/` accepts unauthenticated
+calculation requests without `project_id` and does not persist them. Authenticated
+users may include an owner-scoped active `project_id` to save a snapshot. The
+endpoint rejects client-supplied prices, exchange rates, and owner IDs. Existing
+registry, pricing, exchange-rate, project, history, estimate-detail, and
+comparison endpoints remain documented in `docs/DOMAIN_CONTRACTS.md`.
+
+Payment integration (including the future Nestuge or Selar decision), checkout,
+paid entitlement enforcement, actual model generation, TTS/lip-sync execution,
+rendering, and production-job tracking are outside Task 008.
+
+For local development, run `\.venv\Scripts\python.exe manage.py runserver`,
+then open `/`, `/products/`, `/calculators/`, and the calculator URLs above. Run
+`\.venv\Scripts\python.exe manage.py test` for the project suite.
+
 Provider-independent clip planning engine operating on whole-word capacities to find the globally optimal combination and sequence of video clip durations:
 
 - **Interactive Test Page**: `/calculators/talking-flyer/clip-planner-test/`
@@ -211,16 +291,16 @@ Provider-independent clip planning engine operating on whole-word capacities to 
 
 ```bash
 # Full test suite
-python manage.py test
+\.venv\Scripts\python.exe manage.py test
 
 # Calculator domain tests (Narration + Clip Planning + Segmentation)
-python manage.py test apps.calculators
+\.venv\Scripts\python.exe manage.py test apps.calculators
 
 # Single application
-python manage.py test apps.accounts
+\.venv\Scripts\python.exe manage.py test apps.accounts
 
 # Django system checks
-python manage.py check
+\.venv\Scripts\python.exe manage.py check
 ```
 
 The test suite currently covers:
@@ -232,6 +312,8 @@ The test suite currently covers:
 | `apps/calculators/tests/test_narration.py` | Text normalisation, word counting rules, WPM validation, duration arithmetic, NarrationEngine contract, web view, and JSON calculation API |
 | `apps/calculators/tests/test_clip_planning.py` | Clip capacity calculations, DP sequence optimisation, priority tie-breaking, summary metrics, UniversalClipPlanningEngine contract, and API endpoint |
 | `apps/calculators/tests/test_narration_segmentation.py` | Single/multiple clip segmentation, sentence-boundary preference & fallback, punctuation preservation, remaining capacity protection, and text integrity validation |
+| `apps/video_registry/tests/` | Provider/model/workflow registry, evidence, capabilities, revisions, validation, API, and Admin |
+| `apps/pricing/tests/` | Pricing constraints and history, pure cost engine, API estimates, FX, credits, retries, and Admin |
 | `videocalculatorproject/tests/test_project_setup.py` | Settings configuration, installed apps, home page |
 
 > **Standard:** Every business-critical service function must have automated tests
@@ -265,10 +347,10 @@ The following decisions have been confirmed:
 | # | Topic | Decision | Implementation Status |
 |---|---|---|---|
 | 1 | **Product Slugs** | `talking-flyer-calculator` & `ai-video-calculator` | Confirmed as canonical identifiers |
-| 2 | **Payment Provider** | Nestuge or Sella | Decoupled via `BasePaymentGateway`; adapter to be implemented in payments task |
+| 2 | **Payment Provider** | Nestuge or Selar | Not selected or integrated; provider-specific work is reserved for a future payment task |
 | 3 | **Currency** | Multi-currency platform | Database models store ISO 4217 code and Decimal amounts |
 | 4 | **Entitlement Model** | Lifetime (one-time purchase) | `Entitlement` supports indefinite access (`expires_at=None`) |
-| 5 | **Calculator Access** | Gated behind paid entitlement | Public interactive test page provided for Task 003 validation; gated decorators apply to production calculators |
+| 5 | **Calculator Access** | Customer-facing planning tools are public; estimate saving requires sign-in and a project | Implemented for Task 008; future paid access rules remain separate |
 
 ---
 

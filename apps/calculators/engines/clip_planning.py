@@ -92,7 +92,15 @@ class UniversalClipPlanningEngine(BaseCalculationEngine):
 
         # 5. Segment narration across the selected clip sequence
         pref_sentence = bool(seg_config.get("sentence_boundary_preference", True))
-        tol_sentence = float(seg_config.get("sentence_boundary_tolerance", 0.20))
+        tol_raw = seg_config.get("sentence_boundary_tolerance", 0.20)
+        try:
+            tol_sentence = float(tol_raw)
+            if not (0.0 <= tol_sentence <= 1.0):
+                raise ValueError("sentence_boundary_tolerance must be between 0.0 and 1.0.")
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"sentence_boundary_tolerance must be a number between 0.0 and 1.0, got: {tol_raw!r}."
+            )
 
         segments, validation_summary = segment_narration(
             normalized_text=normalized_text,

@@ -34,6 +34,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer = null;
     let latestRequestId = 0;
     let currentWpm = 135; // Default Conversational speed
+    const continueLink = document.getElementById('continueToClipPlanner');
+    const savedNarration = sessionStorage.getItem('videoCalculatorNarration');
+    if (savedNarration) {
+        try {
+            const saved = JSON.parse(savedNarration);
+            textarea.value = saved.text || '';
+            const preset = document.querySelector(`input[name="speed_preset"][value="${saved.wpm}"]`);
+            if (preset) preset.checked = true;
+            else {
+                const custom = document.querySelector('input[name="speed_preset"][value="custom"]');
+                if (custom) custom.checked = true;
+                customWpmInput.value = saved.wpm || 135;
+            }
+            sessionStorage.removeItem('videoCalculatorNarration');
+        } catch { sessionStorage.removeItem('videoCalculatorNarration'); }
+    }
 
     /**
      * Reads the CSRF token from the DOM form token or cookie.
@@ -136,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Renders backend calculation results to the UI.
      */
     function renderResults(data) {
+        currentWpm = data.wpm;
         heroDurationDisplay.textContent = data.duration_display;
         heroDurationReadable.textContent = data.duration_readable;
 
@@ -154,6 +171,10 @@ document.addEventListener('DOMContentLoaded', () => {
             formulaExampleText.textContent = `Example: 150 words at 150 WPM = (150 ÷ 150) × 60 = 60.0 seconds (1 minute 0 seconds).`;
         }
     }
+
+    continueLink?.addEventListener('click', () => {
+        sessionStorage.setItem('videoCalculatorNarration', JSON.stringify({ text: textarea.value, wpm: resolveActiveWpm() || currentWpm }));
+    });
 
     /**
      * Sends calculation request to authoritative backend endpoint.

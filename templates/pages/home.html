@@ -6,14 +6,18 @@
 <section class="hero-section">
     <h1>Commercial Calculator Platform</h1>
     <p class="subtitle">High-precision commercial calculators for Talking Flyers and AI Video Generation.</p>
-    <div class="product-cards">
+    <div class="product-cards" id="products">
         <div class="card">
             <h3>Talking Flyer Calculator</h3>
-            <p>Calculate operational costs, ROI, and delivery budgets for interactive talking flyers.</p>
+            <p>Prepare promotional narration and plan how it fits into a sequence of video clips.</p>
+            <p><a href="{% url 'calculators:talking-flyer' %}">Open the Talking Flyer Calculator</a></p>
+            <p><a href="{% url 'calculators:talking-flyer-narration-test' %}">Narration timing test page</a></p>
+            <p><a href="{% url 'calculators:talking-flyer-clip-planner-test' %}">Plan clips and script segments</a></p>
         </div>
         <div class="card">
             <h3>AI Video Generation Calculator</h3>
-            <p>Compute compute units, rendering margins, and credit allocations for AI video workflows.</p>
+            <p>Plan a video brief, script, scenes and configured AI video model, then estimate production costs before work begins.</p>
+            <p><a href="{% url 'calculators:video-generation' %}">Plan a video and estimate its cost</a></p>
         </div>
     </div>
 </section>

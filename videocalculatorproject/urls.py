@@ -19,6 +19,9 @@ urlpatterns = [
     path('calculators/', include('apps.calculators.urls', namespace='calculators')),
     path('notifications/', include('apps.notifications.urls', namespace='notifications')),
     path('analytics/', include('apps.analytics.urls', namespace='analytics')),
+    path('api/video-registry/', include('apps.video_registry.urls', namespace='video_registry')),
+    path('pricing/', include('apps.pricing.urls', namespace='pricing')),
+    path('workspace/', include('apps.workspace.urls', namespace='workspace')),
 ]
 
 if settings.DEBUG:

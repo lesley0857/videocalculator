@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}My projects{% endblock %}
+{% block content %}
+<section class="workspace-wrap">
+  <h1>My projects</h1>
+  <div class="workspace-actions"><a href="{% url 'workspace:project-create' %}">Create project</a><a href="?status=active">Active</a><a href="?status=archived">Archived</a><a href="{% url 'workspace:project-list' %}">All</a></div>
+  <div class="workspace-grid">
+    {% for project in page.object_list %}<article class="workspace-card"><h2><a href="{% url 'workspace:project-detail' project.pk %}">{{ project.name }}</a></h2><p>{{ project.description|default:"No description" }}</p><p>{{ project.status }} · Updated {{ project.updated_at|date:"Y-m-d H:i" }} · {{ project.estimate_count }} estimate(s)</p></article>
+    {% empty %}<p>No projects match this view.</p>{% endfor %}
+  </div>
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}&status={{ status_filter }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?page={{ page.next_page_number }}&status={{ status_filter }}">Next</a>{% endif %}
+</section>
+{% endblock %}

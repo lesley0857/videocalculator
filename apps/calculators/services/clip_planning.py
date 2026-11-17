@@ -308,8 +308,11 @@ def calculate_plan_summary_metrics(
             "total_reserved_duration_seconds": "0.00",
             "total_usable_narration_duration_seconds": "0.00",
             "total_speech_duration_seconds": "0.00",
+            "total_unused_narration_duration_seconds": "0.00",
+            "total_unused_generated_duration_seconds": "0.00",
             "total_unused_duration_seconds": "0.00",
             "overall_utilisation_percentage": "0.00",
+            "average_clip_utilisation_percentage": "0.00",
             "average_words_per_clip": "0.00",
             "average_generated_duration_seconds": "0.00",
             "average_speech_duration_seconds": "0.00",
@@ -321,9 +324,14 @@ def calculate_plan_summary_metrics(
 
     # Total actual speech duration based on words
     total_speech = ((Decimal(word_count) / w_dec) * _SIXTY).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
-    total_unused = (total_gen - total_speech).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
-    if total_unused < Decimal("0.00"):
-        total_unused = Decimal("0.00")
+
+    total_unused_gen = (total_gen - total_speech).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
+    if total_unused_gen < Decimal("0.00"):
+        total_unused_gen = Decimal("0.00")
+
+    total_unused_narr = (total_usable - total_speech).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
+    if total_unused_narr < Decimal("0.00"):
+        total_unused_narr = Decimal("0.00")
 
     if total_usable > Decimal("0"):
         overall_util = ((total_speech / total_usable) * Decimal("100")).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
@@ -335,6 +343,13 @@ def calculate_plan_summary_metrics(
     avg_gen = (total_gen / clips_dec).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
     avg_speech = (total_speech / clips_dec).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
 
+    if segments and len(segments) > 0:
+        avg_clip_util = (
+            sum(Decimal(str(s.get("utilisation_percentage", "0.00"))) for s in segments) / Decimal(len(segments))
+        ).quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)
+    else:
+        avg_clip_util = overall_util
+
     clip_seq = [opt.duration_seconds for opt in clip_options]
 
     return {
@@ -344,8 +359,11 @@ def calculate_plan_summary_metrics(
         "total_reserved_duration_seconds": str(total_res.quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)),
         "total_usable_narration_duration_seconds": str(total_usable.quantize(_TWO_DP, rounding=ROUND_HALF_EVEN)),
         "total_speech_duration_seconds": str(total_speech),
-        "total_unused_duration_seconds": str(total_unused),
+        "total_unused_narration_duration_seconds": str(total_unused_narr),
+        "total_unused_generated_duration_seconds": str(total_unused_gen),
+        "total_unused_duration_seconds": str(total_unused_gen),
         "overall_utilisation_percentage": str(overall_util),
+        "average_clip_utilisation_percentage": str(avg_clip_util),
         "average_words_per_clip": str(avg_words),
         "average_generated_duration_seconds": str(avg_gen),
         "average_speech_duration_seconds": str(avg_speech),

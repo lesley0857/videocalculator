@@ -489,6 +489,236 @@ These will be specified in a future task when the subscription model is designed
 
 ---
 
+## 5. AI video registry and Task 006 integration
+
+The registry's stable relational identity is `Provider` → `VideoModel`. Each
+`VideoModel` row represents one provider, model slug, and version; the database
+uniqueness constraint is `(provider, slug, version)`. Future pricing records should
+use a foreign key to the exact `VideoModel` version, and a `Workflow` foreign key
+when a price differs by workflow. They must not copy provider/model names into
+pricing tables. `PROTECT` keeps referenced identities available for historical
+quotes and costs.
+
+Capability keys are stable machine identifiers; a capability status is one of
+`supported`, `not_supported`, `unknown`, or `not_verified`. Empty/unknown values are
+not interpreted as false. An update to a capability creates a `CapabilityRevision`
+containing the prior state. Evidence rows can be attached to a model or a specific
+capability and carry classification, source, status, and verification time.
+
+Read API: `GET /api/video-registry/providers/`,
+`GET /api/video-registry/providers/<provider-slug>/`,
+`GET /api/video-registry/models/?workflow=<slug>&capability=<key>`,
+`GET /api/video-registry/models/<provider-slug>/<model-slug>/?version=<version>`,
+and its `/capabilities/` subresource. `apps.video_registry.services` provides
+`get_active_providers`, `get_active_models`, `get_model`, `filter_models`,
+`get_native_talking_video_models`, `get_models_requiring_external_tts`, and
+`get_models_requiring_external_lip_sync`. Invalid filter values raise `ValueError`;
+views translate them to HTTP 400. Public responses omit administrative notes.
+
+To add a provider, create it in Django Admin, create a `Workflow` when a new
+workflow category is needed, then add each version as a separate `VideoModel`.
+Associate only documented workflows and add explicit capability states plus
+evidence. Do not create demonstration provider data in the production registry.
+
+## 6. Task 006 pricing and cost contract
+
+`ModelPricing.video_model` is a foreign key to the exact Task 005 model version;
+`workflow` is an optional foreign key to its registered workflow. Provider identity
+is obtained through `video_model.provider`; pricing does not duplicate the registry.
+Model, operation, credit-package, and subscription prices are effective-dated and
+their identity/rate fields are immutable after insertion. Add a new rate period to
+change a price. `CostEstimate` snapshots the submitted inputs, the exact pricing
+record identifiers and rates used, exchange-rate identifiers and rates, and the
+serialized result.
+
+Model price methods are fixed amount per generation, money per second, credits per
+generation, and credits per second. Per-second values use the configured minimum
+duration and round upward to the configured billing increment. Currency conversion
+uses `1 BASE = rate QUOTE`; direct rates are preferred and inverse rates are
+reciprocated. A rate older than seven days relative to the estimate's `as_of` time
+makes the estimate incomplete. Final money is rounded to two decimals with
+`ROUND_HALF_UP`; intermediate arithmetic uses `Decimal` without rounding.
+
+Credit use is reported separately from its cash value. With a plan, marginal cash
+cost prices only credits above the supplied remaining balance, while allocated
+economic cost is `subscription price × consumed credits ÷ included credits`. The
+caller selects `credit_cost_basis`; a missing balance or additional-credit price is
+reported as missing. Without a plan, an applicable `CreditPackage` is required.
+No CRD amount is treated as money without a package/add-on valuation.
+
+For retries, `failed_attempt_billing` is `billable`, `free`, or `unknown`. Expected
+retry allowance is priced with the configured billing rule. Unknown failed-attempt
+billing leaves the known subtotal intact but makes the estimate incomplete. Actual
+attempt inputs include successful and failed counts, which must sum to
+`actual_attempts`. Estimates warn when a component exceeds three attempts; the
+future production-job task owns persisting attempt events.
+
+The engine's pure input is a normalized object containing model/pricing snapshots,
+operations, FX-rate snapshots, output currency, retry data, and either
+`markup_percentage` or `target_margin_percentage` (never both). Its output contains
+component costs, known partial subtotal, quality warnings, completeness status,
+production/retry costs, selling price, gross profit, and gross margin. Missing
+required pricing or FX returns `incomplete`/HTTP 422 and never yields a complete
+quote or a zero substituted for missing data.
+
+Read endpoints are `/pricing/api/records/`, `/pricing/api/models/<video-model-uuid>/`,
+`/pricing/api/exchange-rates/`, and `/pricing/api/operations/`. Submit JSON to
+`POST /pricing/api/estimate/`; retrieve the stored audit snapshot at
+`GET /pricing/api/estimates/<estimate-uuid>/`. The development calculator is
+`/pricing/test/`; Admin records are under `/admin/pricing/`. The API accepts model,
+workflow, operation, balance, currency, retry, markup, and margin identifiers/data,
+but rejects client-supplied prices and exchange rates.
+
+## 7. Task 007 user workspace and estimate history
+
+`workspace.Project.owner` is a non-null foreign key to the configured custom user.
+Project queries and API lookups are scoped by the authenticated owner. Projects
+have `active` and `archived` states; archive/restore operations preserve the
+project and its estimate history. New estimates are saved with both `owner` and
+`project`, and the model validates that the project belongs to the owner.
+
+`CostEstimate` keeps the Task 006 JSON input/result snapshot and timestamp, with
+owner/project foreign keys. Migration `pricing.0003` adds nullable relations and a
+constraint requiring both relations to be null or both present. This preserves any
+pre-existing Task 006 rows without assigning an arbitrary owner. The current local
+database had no estimate rows when this migration was applied. New estimate saves
+require both relations; all ordinary-user estimate queries filter by owner and
+exclude unassigned legacy rows.
+
+The existing pricing engine remains the source of every new calculation. A saved
+estimate contains resolved pricing/model details and exchange-rate data in its
+result snapshot. Opening or comparing it reads that snapshot and never recalculates
+against current rates. Recalculation from a prior estimate is an explicit action
+that creates a new record and clears the previous pricing-record selections so the
+new request resolves current effective pricing. It does not overwrite the source.
+
+Project dashboard/list/detail pages live under `/workspace/`. Browser project
+operations use authenticated views and CSRF-protected forms. JSON APIs are:
+
+- `GET/POST /workspace/api/projects/` — owner-scoped, paginated project list/create.
+- `GET/PATCH /workspace/api/projects/<project-uuid>/` — read or rename/update description.
+- `POST /workspace/api/projects/<project-uuid>/archive/` — archive or restore using
+  `{"archived": true|false}`.
+- `GET/POST /workspace/api/projects/<project-uuid>/estimates/` — history or calculate
+  and save an estimate in that project.
+- `GET /workspace/api/estimates/<estimate-uuid>/` — retrieve the owner's saved snapshot.
+- `POST /workspace/api/estimates/compare/` — compare 2–10 estimates owned by the caller.
+- `POST /pricing/api/estimate/` — public callers may calculate without a
+  `project_id`; those results are not persisted. Authenticated users can include
+  an owner-owned active `project_id` to save an immutable snapshot.
+- `GET /pricing/api/estimates/<estimate-uuid>/` — retained Task 006 detail route, now
+  authenticated and owner-scoped.
+
+Foreign and unassigned legacy project/estimate identifiers return the same `not_found`
+response. Owner IDs are never accepted from the client. Comparisons preserve each
+estimate's original currency and exchange-rate snapshot; totals in different
+currencies are displayed separately without a live or current-rate conversion.
+
+`CostEstimate.save()` blocks edits to existing snapshots and the Admin denies
+estimate add/change/delete. This is application-level protection; it is not a
+database trigger and direct SQL or bulk ORM mutation can bypass it. The generic
+legacy estimate has no owner/project and is not available through ordinary-user
+API or workspace queries.
+
+The API may accept caller-supplied `actual_attempts`, `successful_attempts`, and
+`failed_attempts` as costing inputs, consistent with Task 006. The estimate UI and
+detail view label such values as user-supplied assumptions; they are not provider
+observations or platform-tracked activity. Task 007 creates no attempt/job records.
+
+## 8. Task 008 customer-facing calculator experience
+
+`/products/` and `/calculators/` are HTML directories. Public tools include the
+narration calculator, clip planner, and `/pricing/test/` production cost form.
+The existing narration and clip engines remain authoritative; narration inputs
+are passed between their pages using browser session storage. After a successful
+clip plan, the cost calculator can receive the clip count and average generated
+duration as editable assumptions. That average is not a replacement for a
+heterogeneous clip breakdown: users can add separate pricing components and
+select model/workflow assumptions independently.
+
+The cost page's provider/model options use active registry records. Model
+versions are shown separately, workflows are those explicitly related to the
+selected version, and capability statuses/verification details are displayed
+from the model detail endpoint. Unknown capability values are displayed as
+unknown and are never rendered as supported. An empty provider, model, workflow,
+effective price, or FX registry produces an explicit empty/incomplete state.
+Pricing choices and calculation results come from the existing Task 006 read and
+estimate endpoints; browser code does not calculate money. Optional service
+costs require configured operation-pricing records. No contingency field is
+exposed because the current engine has no contingency input.
+
+Public visitors may submit a valid request to `POST /pricing/api/estimate/` with
+the same Task 006 cost fields but without `project_id`; this calculates without
+creating a `CostEstimate`. A visitor can retain their form values in same-origin
+session storage while navigating to sign in or register. Once authenticated,
+recalculating with an active project ID uses the existing owner-scoped save path
+and creates a new immutable snapshot. The server never trusts a client owner ID.
+Historical comparisons continue to use Task 007 `compare_estimates`; mixed
+currencies remain separate and saved FX snapshots are preserved.
+
+Local customer pages: `/products/`, `/calculators/`,
+`/calculators/talking-flyer/narration-test/`,
+`/calculators/talking-flyer/clip-planner-test/`, and `/pricing/test/`. Administrators
+must configure active provider/model/workflow records, effective model and
+optional-operation pricing, applicable credit packages or subscription plans,
+and FX records before complete estimates can be produced. No commercial pricing
+is fabricated or seeded by this task. Payment integrations (Nestuge/Selar),
+checkout, entitlements, generation APIs, TTS/lip-sync execution, rendering, and
+production-job tracking remain out of scope.
+
+## Talking Flyer production costing extension
+
+The existing customer calculator at `/pricing/test/` accepts configured model versions and exact generation configuration (resolution, aspect ratio, audio mode, and duration). Configuration choices are accepted only when the registry marks the matching capability as supported. Model prices are effective-dated and scoped to their configuration.
+
+Production tools (such as ChatGPT, CapCut, and voice services) are separate from generation models and workflows. A tool can carry activities, subscription allocation, included usage, and additional usage pricing. Select each tool once per estimate so a shared subscription is allocated once. Subscription allocations are economic cost; cash expenditure is reported separately, including a full subscription purchase only when selected for this project.
+
+Production overheads support electricity, internet/data, labour, equipment, software, licensed assets/music, storage/delivery, payment and FX fees, taxes/duties, and other expenses. Administrators configure effective-dated rates. A customer may instead enter a manual project amount, which is labelled as a customer estimate. Missing rates remain incomplete rather than being treated as zero.
+
+The result reports desired final duration, expected usable footage, billable generated duration, AI/provider costs, optional services, production tools, overheads, cost per finished video and finished second, and additional cash expenditure. Each saved estimate retains its submitted inputs, selected effective prices, evidence, FX rates, and calculated result as an immutable historical snapshot.
+
+Pricing is not seeded automatically. Configure the registry in Django Admin after reviewing current provider and local subscription prices. Veo API prices depend on model variant, output resolution, duration, and audio mode; subscription prices such as CapCut vary by region and account. See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing), [ChatGPT Plus details](https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus), [ElevenLabs API pricing](https://elevenlabs.io/pricing/api), and [CapCut Pro pricing help](https://www.capcut.com/help/how-much-does-capcut-pro-cost) when configuring rates.
+
+## Specialty catalogue and calculator request contracts
+
+The provider catalogue is normalized independently from the platform retail
+`products.Product` table. `Specialty` classifies providers, offerings, and plans;
+`ProviderOffering` identifies a provider product or service; `AccessRoute` identifies
+how that offering is reached and billed. Versioned `VideoModel` rows stay attached
+to their existing provider and may be linked to offerings. Routes list applicable
+model versions explicitly. No real-world provider, plan, model capability, or price
+is inferred by the specialty seed migration.
+
+Read-only catalogue endpoints are mounted below `/api/video-registry/`:
+
+- `specialties/`
+- `specialties/<slug>/providers/`
+- `offerings/?specialty=<slug>&provider=<slug>`
+- `plans/?specialty=<slug>&offering=<uuid>`
+- `access-routes/?specialty=<slug>&offering=<uuid>[&model=<uuid>]`
+- `models/?specialty=<slug>&provider=<slug>&offering=<uuid>&access_route=<uuid>`
+- `models/<provider>/<model>/capabilities/?version=<version>`
+
+The estimate endpoint accepts `calculator_type` (`talking_flyer`,
+`video_generation`, or backward-compatible `general`). Product-specific requests
+use version 1 contracts in `apps/pricing/contracts.py`. A Talking Flyer request
+passes `talking_flyer.schema_version`, narration values, and an exact consecutive
+`clip_plan.clips` list; every clip carries generated, reserved, and usable seconds
+and word counts. Its component `clip_sequences` assignments must allocate every
+clip exactly once. Video Generation passes `video_generation.schema_version`, a
+brief, script preparation method, optional scriptwriting tool selection, and ordered
+scenes. These are backend contracts; customer interfaces and AI generation/API
+integrations are outside this implementation.
+
+Saved estimates record their calculator type and a resolved catalogue/pricing/FX
+snapshot. Detail reads use that stored snapshot and do not re-resolve current rates.
+The customer-facing Talking Flyer journey is mounted at `/calculators/talking-flyer/`;
+it composes the existing narration and clip-plan endpoints with specialty catalogue
+selection and the shared estimate endpoint. Guest calculations remain transient.
+When saving, a server-validated request is held in the authenticated session until
+the owner chooses an active project or creates one. Registration and login return to
+that save step. Reusing a saved Talking Flyer estimate restores its script and speed
+as a starting point; current models and prices must be selected and recalculated.
+
 ## 4. Product slug registry
 
 The following slugs are the canonical identifiers for the initial two products.

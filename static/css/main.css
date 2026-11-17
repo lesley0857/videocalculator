@@ -61,6 +61,46 @@ body {
     color: var(--primary-color);
 }
 
+.site-menu {
+    position: relative;
+    display: inline-block;
+    margin-left: 1.5rem;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.site-menu summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.site-menu summary::-webkit-details-marker { display: none; }
+.site-menu summary::after { content: " ▾"; }
+
+.site-menu-panel {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + .75rem);
+    right: 0;
+    display: grid;
+    min-width: 220px;
+    padding: .5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+}
+
+.site-menu-panel a {
+    margin: 0;
+    padding: .55rem .7rem;
+    border-radius: 5px;
+    text-decoration: none;
+}
+
+.site-menu-panel a:hover { background: var(--bg-color); }
+.site-menu-heading { padding: .55rem .7rem .25rem; color: var(--text-muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+
 .main-content {
     flex: 1;
     padding: 3rem 0;
@@ -101,6 +141,12 @@ body {
     color: var(--primary-color);
 }
 
+.directory-page .eyebrow { color: var(--primary-color); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.directory-page h1 { margin: .25rem 0 .75rem; }
+.directory-page .lead { color: var(--text-muted); max-width: 760px; margin-bottom: 1.5rem; }
+.directory-page .card h2 { font-size: 1.15rem; margin-bottom: .5rem; color: var(--primary-color); }
+.directory-page .card p { margin-bottom: .75rem; }
+
 .site-footer {
     background-color: var(--card-bg);
     border-top: 1px solid var(--border-color);
@@ -108,5 +154,11 @@ body {
     text-align: center;
     color: var(--text-muted);
     font-size: 0.875rem;
+}
+
+@media (max-width: 680px) {
+    .site-header .container { align-items: flex-start; gap: .75rem; flex-wrap: wrap; }
+    .nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+    .nav-links a, .site-menu { margin-left: 0; }
 }
 

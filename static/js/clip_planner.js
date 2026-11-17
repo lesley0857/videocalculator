@@ -70,6 +70,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let latestRequestId = 0;
     let lastCalculatedPlan = null;
 
+    const carriedNarration = sessionStorage.getItem('videoCalculatorNarration');
+    if (carriedNarration) {
+        try {
+            const carried = JSON.parse(carriedNarration);
+            textarea.value = carried.text || '';
+            const preset = document.querySelector(`input[name="speed_preset"][value="${carried.wpm}"]`);
+            if (preset) preset.checked = true;
+            else {
+                const custom = document.querySelector('input[name="speed_preset"][value="custom"]');
+                if (custom) custom.checked = true;
+                customWpmInput.value = carried.wpm || 135;
+            }
+            sessionStorage.removeItem('videoCalculatorNarration');
+        } catch { sessionStorage.removeItem('videoCalculatorNarration'); }
+    }
+
     // In-memory options state: [{ duration: int, reserved: float, selected: bool, isCustom: bool }]
     let clipOptionsState = [];
 
@@ -375,6 +391,13 @@ document.addEventListener('DOMContentLoaded', () => {
         metricTotalUnused.textContent = plan.total_unused_duration_seconds;
         metricAvgWords.textContent = plan.average_words_per_clip;
         metricAvgDuration.textContent = plan.average_generated_duration_seconds;
+        const params = new URLSearchParams({
+            clip_count: String(plan.clip_count),
+            duration_seconds: String((Number(plan.total_generated_duration_seconds) / Math.max(1, Number(plan.clip_count))).toFixed(2)),
+        });
+        const costLink = document.getElementById('costEstimateLink');
+        costLink.href = `${costLink.href.split('?')[0]}?${params.toString()}`;
+        document.getElementById('costEstimateCta').hidden = false;
 
         // Render Visual Clip Timeline
         renderTimeline(clips);

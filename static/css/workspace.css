@@ -1,0 +1,15 @@
+.workspace-wrap { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+.workspace-card { background: #fff; border: 1px solid #d9e0e8; border-radius: 12px; padding: 1.25rem; margin: 1rem 0; }
+.workspace-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; }
+.workspace-actions { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin: 1rem 0; }
+.workspace-actions form, .nav-logout { display: inline; margin: 0; }
+.nav-logout button { border: 0; background: none; color: inherit; cursor: pointer; font: inherit; padding: 0; }
+.workspace-table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.workspace-table th, .workspace-table td { border-bottom: 1px solid #d9e0e8; padding: .7rem; text-align: left; vertical-align: top; }
+.workspace-table th { background: #f4f7fa; }
+.workspace-table pre, .snapshot { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.auth-card { max-width: 520px; margin: 2rem auto; }
+.status-pill { display: inline-block; border-radius: 999px; padding: .2rem .65rem; background: #eef2f6; }
+.financial-note { border-left: 4px solid #4778a8; padding: .7rem 1rem; background: #f4f8fc; }
+.error-note { color: #8b1f1f; }
+@media (max-width: 680px) { .workspace-table { display: block; overflow-x: auto; } }

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Products | Video Calculator{% endblock %}
+{% block content %}
+<section class="directory-page">
+  <p class="eyebrow">Products</p>
+  <h1>Plan AI-assisted video production</h1>
+  <p class="lead">Plan a Talking Flyer or a separate AI video project, and estimate production costs before work begins. These tools provide planning estimates; they do not generate or render videos.</p>
+  <div class="product-cards">
+    <article class="card"><h2>Talking Flyer Calculator</h2><p>Write or paste promotional narration, plan clip-by-clip timing and estimate the cost of producing a talking flyer.</p><p><a href="{% url 'calculators:talking-flyer' %}">Start a Talking Flyer estimate</a></p></article>
+    <article class="card"><h2>Video Generation Calculator</h2><p>Describe a video project, prepare a script yourself or with an external AI assistant, plan scenes, choose configured models and estimate production costs.</p><p><a href="{% url 'calculators:video-generation' %}">Plan a video project</a></p></article>
+    <article class="card"><h2>AI video production cost calculator</h2><p>Explore model and workflow cost assumptions using the configured provider and pricing registry.</p><p><a href="{% url 'pricing:test-interface' %}">Estimate production cost</a></p></article>
+  </div>
+</section>
+{% endblock %}

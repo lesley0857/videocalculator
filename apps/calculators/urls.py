@@ -1,9 +1,13 @@
 from django.urls import path
+from apps.pricing.views import VideoGenerationCalculatorView
 from .views import (
     CalculatorPlaceholderView,
     ClipPlannerCalculateApiView,
     NarrationCalculateApiView,
     TalkingFlyerClipPlannerTestView,
+    TalkingFlyerCalculatorView,
+    TalkingFlyerSavePrepareView,
+    TalkingFlyerSaveView,
     TalkingFlyerNarrationTestView,
 )
 
@@ -11,6 +15,10 @@ app_name = 'calculators'
 
 urlpatterns = [
     path('', CalculatorPlaceholderView.as_view(), name='index'),
+    path('talking-flyer/', TalkingFlyerCalculatorView.as_view(), name='talking-flyer'),
+    path('video-generation/', VideoGenerationCalculatorView.as_view(), name='video-generation'),
+    path('talking-flyer/save/prepare/', TalkingFlyerSavePrepareView.as_view(), name='talking-flyer-save-prepare'),
+    path('talking-flyer/save/', TalkingFlyerSaveView.as_view(), name='talking-flyer-save'),
     path(
         'talking-flyer/narration-test/',
         TalkingFlyerNarrationTestView.as_view(),

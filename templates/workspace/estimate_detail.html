@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Saved estimate{% endblock %}
+{% block content %}
+<section class="workspace-wrap">
+  <p><a href="{% url 'workspace:project-detail' project.pk %}">{{ project.name }}</a> / Estimate</p>
+  <h1>Historical cost estimate</h1>
+  <p class="financial-note">This is the saved calculation from {{ estimate.created_at|date:"Y-m-d H:i:s" }}. It has not been recalculated using current prices. Any attempt counts in its input snapshot are user-supplied costing assumptions, not provider-reported activity.</p>
+  <div class="workspace-card"><h2>Summary</h2><table class="workspace-table"><tbody>
+    <tr><th>Reference</th><td>{{ estimate.pk }}</td></tr><tr><th>Calculator</th><td>{{ estimate.get_calculator_type_display }}</td></tr><tr><th>Status</th><td>{{ estimate.result.status }}</td></tr>
+    <tr><th>Estimated production cost</th><td>{{ estimate.result.commercial.currency }} {{ estimate.result.commercial.total_estimated_production_cost|default:estimate.result.commercial.known_partial_cost|default:"Incomplete" }}</td></tr>
+    <tr><th>Suggested selling price</th><td>{{ estimate.result.commercial.suggested_selling_price|default:"—" }}</td></tr><tr><th>Estimated gross profit</th><td>{{ estimate.result.commercial.gross_profit|default:"—" }}</td></tr><tr><th>Estimated gross margin</th><td>{{ estimate.result.commercial.gross_margin_percentage|default:"—" }}%</td></tr>
+  </tbody></table>
+  <h3>Model, workflow, and pricing details</h3><pre class="snapshot">{{ estimate.result.model_costs|pprint }}</pre>
+  <h3>Optional service costs</h3><pre class="snapshot">{{ estimate.result.operation_costs|pprint }}</pre>
+  <h3>Saved calculation inputs</h3><pre class="snapshot">{{ estimate.inputs|pprint }}</pre>
+  <h3>Full saved result</h3><pre class="snapshot">{{ estimate.result|pprint }}</pre>
+  <div class="workspace-actions">{% if estimate.calculator_type == 'talking_flyer' %}<a href="{% url 'calculators:talking-flyer' %}?from={{ estimate.pk }}">Reuse script and clip plan in a new Talking Flyer calculation</a>{% elif estimate.calculator_type == 'video_generation' %}<a href="{% url 'calculators:video-generation' %}?from={{ estimate.pk }}">Reuse this brief and scene plan in a new Video Generation calculation</a>{% endif %}<a href="{% url 'workspace:estimate-create' project.pk %}?from={{ estimate.pk }}">Create a new general estimate from these assumptions</a><a href="{% url 'workspace:project-detail' project.pk %}">Back to project</a></div>
+  </div>
+</section>
+{% endblock %}

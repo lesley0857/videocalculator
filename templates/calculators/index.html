@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Calculators | Video Calculator{% endblock %}
+{% block content %}
+<section class="directory-page">
+  <p class="eyebrow">Calculators</p>
+  <h1>Choose a planning tool</h1>
+  <p class="lead">Use the tools independently, or take a clip plan forward as an assumption for a production cost estimate.</p>
+  <div class="product-cards">
+    <article class="card"><h2>Video Generation Calculator</h2><p>Describe a video, prepare a script, plan scenes, select configured tools and estimate the full production cost. This is separate from Talking Flyer planning.</p><a href="{% url 'calculators:video-generation' %}">Start Video Generation calculator</a></article>
+    <article class="card"><h2>Talking Flyer Calculator</h2><p>Enter a script, estimate narration time, plan individual clips, select production options and calculate the project cost.</p><a href="{% url 'calculators:talking-flyer' %}">Start Talking Flyer calculator</a></article>
+    <article class="card"><h2>Narration timing (developer test)</h2><p>Use the isolated narration timing test interface.</p><a href="{% url 'calculators:talking-flyer-narration-test' %}">Open narration test</a></article>
+    <article class="card"><h2>Clip planner (developer test)</h2><p>Inspect the standalone clip-planning engine with test inputs.</p><a href="{% url 'calculators:talking-flyer-clip-planner-test' %}">Open clip planner</a></article>
+    <article class="card"><h2>AI video production cost</h2><p>Estimate model, operation, credit, and commercial assumptions from configured registry data.</p><a href="{% url 'pricing:test-interface' %}">Open cost calculator</a></article>
+  </div>
+</section>
+{% endblock %}

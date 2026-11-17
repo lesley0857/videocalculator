@@ -131,7 +131,59 @@ class NarrationSegmentationTests(SimpleTestCase):
         self.assertTrue(is_sentence_end_word("wait..."))
         self.assertTrue(is_sentence_end_word('"quoted."'))
         self.assertTrue(is_sentence_end_word("'quoted?'"))
+        self.assertTrue(is_sentence_end_word("really?!"))
+        self.assertTrue(is_sentence_end_word("what!?"))
+        self.assertTrue(is_sentence_end_word("incredible!!"))
+        self.assertTrue(is_sentence_end_word("done!\""))
+        self.assertTrue(is_sentence_end_word("finished.)"))
         self.assertFalse(is_sentence_end_word("middle"))
         self.assertFalse(is_sentence_end_word("word,with,comma"))
         self.assertFalse(is_sentence_end_word(""))
+        # Abbreviations and honorifics should NOT be sentence ends
+        self.assertFalse(is_sentence_end_word("Dr."))
+        self.assertFalse(is_sentence_end_word("Mr."))
+        self.assertFalse(is_sentence_end_word("Mrs."))
+        self.assertFalse(is_sentence_end_word("Ms."))
+        self.assertFalse(is_sentence_end_word("Prof."))
+        self.assertFalse(is_sentence_end_word("Ltd."))
+        self.assertFalse(is_sentence_end_word("Inc."))
+        self.assertFalse(is_sentence_end_word("e.g."))
+        self.assertFalse(is_sentence_end_word("i.e."))
+        # Single-letter initials
+        self.assertFalse(is_sentence_end_word("J."))
+        self.assertFalse(is_sentence_end_word("A."))
+        # Numbered list prefixes and decimals
+        self.assertFalse(is_sentence_end_word("1."))
+        self.assertFalse(is_sentence_end_word("2."))
+        self.assertFalse(is_sentence_end_word("10."))
+        self.assertFalse(is_sentence_end_word("12.5"))
+        self.assertFalse(is_sentence_end_word("$12.5"))
+
+    def test_abbreviation_in_sentence_does_not_cause_premature_break(self):
+        # Narration containing "Dr. Smith"
+        text = "Please consult Dr. Smith at the medical centre for your checkup."
+        # 11 words, 150 WPM -> 10s clip holds 25 words
+        clips = [ClipOption(duration_seconds=10)]
+        segments, val = segment_narration(text, 150, clips, sentence_boundary_preference=True)
+        self.assertEqual(len(segments), 1)
+        self.assertEqual(segments[0]["word_count"], 11)
+        self.assertTrue(val["is_valid"])
+        self.assertTrue(val["reconstructed_text_matches"])
+
+    def test_unused_duration_metrics_in_segments(self):
+        text = "Hello world."
+        clip = ClipOption(duration_seconds=10, reserved_seconds=Decimal("1.00"))
+        segments, val = segment_narration(text, 120, [clip])
+        self.assertEqual(len(segments), 1)
+        seg = segments[0]
+        # At 120 WPM (2 w/s), 2 words = 1.00s speech
+        # Generated: 10.00s, Reserved: 1.00s, Usable: 9.00s
+        # Unused narration: 9.00 - 1.00 = 8.00s
+        # Unused generated: 10.00 - 1.00 = 9.00s
+        self.assertEqual(seg["generated_duration_seconds"], "10.00")
+        self.assertEqual(seg["reserved_duration_seconds"], "1.00")
+        self.assertEqual(seg["usable_narration_duration_seconds"], "9.00")
+        self.assertEqual(seg["speech_duration_seconds"], "1.00")
+        self.assertEqual(seg["unused_narration_duration_seconds"], "8.00")
+        self.assertEqual(seg["unused_generated_duration_seconds"], "9.00")
 

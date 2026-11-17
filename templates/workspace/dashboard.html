@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}My workspace{% endblock %}
+{% block content %}
+<section class="workspace-wrap">
+  <h1>My workspace</h1>
+  <p>Plan and compare estimated video production costs. These figures are estimates, not actual expenses or production activity.</p>
+  <div class="workspace-grid">
+    <div class="workspace-card"><strong>{{ total_projects }}</strong><br>Projects</div>
+    <div class="workspace-card"><strong>{{ active_projects }}</strong><br>Active projects</div>
+    <div class="workspace-card"><strong>{{ archived_projects }}</strong><br>Archived projects</div>
+    <div class="workspace-card"><strong>{{ total_estimates }}</strong><br>Saved estimates</div>
+  </div>
+  <div class="workspace-actions"><a href="{% url 'workspace:project-create' %}">Create project</a><a href="{% url 'workspace:project-list' %}">View projects</a></div>
+  <div class="workspace-grid">
+    <section class="workspace-card"><h2>Recently updated projects</h2>
+      {% for project in recent_projects %}<p><a href="{% url 'workspace:project-detail' project.pk %}">{{ project.name }}</a> · {{ project.status }} · {{ project.estimate_count }} estimate(s)</p>{% empty %}<p>No projects yet.</p>{% endfor %}
+    </section>
+    <section class="workspace-card"><h2>Recently saved estimates</h2>
+      {% for estimate in recent_estimates %}<p><a href="{% url 'workspace:estimate-detail' estimate.pk %}">{{ estimate.project.name }}</a> · {{ estimate.get_calculator_type_display }} · {{ estimate.created_at|date:"Y-m-d H:i" }} · {{ estimate.result.commercial.currency }} {{ estimate.result.commercial.total_estimated_production_cost|default:estimate.result.commercial.known_partial_cost }} · {{ estimate.result.status }}</p>{% empty %}<p>No estimates yet.</p>{% endfor %}
+    </section>
+  </div>
+</section>
+{% endblock %}

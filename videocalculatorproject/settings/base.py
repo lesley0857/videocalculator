@@ -55,12 +55,17 @@ LOCAL_APPS = [
     'apps.calculators',
     'apps.notifications',
     'apps.analytics',
+    'apps.video_registry',
+    'apps.pricing',
+    'apps.workspace',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # Custom User Model - using email as unique identity
 AUTH_USER_MODEL = 'accounts.User'
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'workspace:dashboard'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -139,7 +144,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
 

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<section class="workspace-wrap">
+  <p><a href="{% url 'workspace:project-list' %}">Projects</a> / {{ project.name }}</p>
+  <div class="workspace-card"><h1>{{ project.name }}</h1><p>{{ project.description|default:"No description" }}</p><p><span class="status-pill">{{ project.status }}</span> · Updated {{ project.updated_at|date:"Y-m-d H:i" }}</p>
+    <div class="workspace-actions"><a href="{% url 'workspace:project-edit' project.pk %}">Edit project</a>{% if project.status == 'active' %}<a href="{% url 'workspace:estimate-create' project.pk %}">Calculate a new estimate</a><form method="post" action="{% url 'workspace:project-archive' project.pk %}">{% csrf_token %}<button type="submit">Archive</button></form>{% else %}<form method="post" action="{% url 'workspace:project-restore' project.pk %}">{% csrf_token %}<button type="submit">Restore project</button></form>{% endif %}</div>
+  </div>
+  <div class="workspace-card"><h2>Estimate history</h2>
+    {% if estimates.object_list %}<form method="post" action="{% url 'workspace:estimate-compare' %}">{% csrf_token %}
+      <table class="workspace-table"><thead><tr><th>Compare</th><th>Reference / date</th><th>Calculator</th><th>Status</th><th>Cost</th><th>Selling price</th><th>Profit</th><th>Margin</th><th>Models</th></tr></thead><tbody>
+      {% for estimate in estimates.object_list %}<tr><td><input type="checkbox" name="estimate_ids" value="{{ estimate.pk }}" aria-label="Select {{ estimate.pk }}"></td><td><a href="{% url 'workspace:estimate-detail' estimate.pk %}">{{ estimate.pk }}</a><br>{{ estimate.created_at|date:"Y-m-d H:i" }}</td><td>{{ estimate.get_calculator_type_display }}</td><td>{{ estimate.result.status }}</td><td>{{ estimate.result.commercial.currency }} {{ estimate.result.commercial.total_estimated_production_cost|default:estimate.result.commercial.known_partial_cost|default:"Incomplete" }}</td><td>{{ estimate.result.commercial.suggested_selling_price|default:"—" }}</td><td>{{ estimate.result.commercial.gross_profit|default:"—" }}</td><td>{{ estimate.result.commercial.gross_margin_percentage|default:"—" }}%</td><td>{% for line in estimate.result.model_costs %}{{ line.model.name }} v{{ line.model.version }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td></tr>{% endfor %}
+      </tbody></table><button type="submit">Compare selected estimates</button></form>
+    {% else %}<p>No saved estimates yet. {% if project.status == 'active' %}<a href="{% url 'workspace:estimate-create' project.pk %}">Create one</a>.{% endif %}</p>{% endif %}
+    {% if estimates.has_previous %}<a href="?page={{ estimates.previous_page_number }}">Previous</a>{% endif %} Page {{ estimates.number }} of {{ estimates.paginator.num_pages }} {% if estimates.has_next %}<a href="?page={{ estimates.next_page_number }}">Next</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

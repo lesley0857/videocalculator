@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Compare estimates{% endblock %}
+{% block content %}
+<section class="workspace-wrap"><h1>Estimate comparison</h1>
+  {% if error %}<p class="error-note" role="alert">{{ error }}</p>{% endif %}
+  {% if estimates %}<p class="financial-note">Each estimate retains its original currency and exchange-rate assumptions. Values in different currencies are shown separately and are not converted using today's rates.</p>
+  <p class="financial-note">Saved inputs, including optional attempt counts, are user-supplied costing assumptions. The platform does not observe generation activity.</p>
+  <table class="workspace-table"><thead><tr><th>Measure</th>{% for item in estimates %}<th><a href="{% url 'workspace:estimate-detail' item.id %}">{{ item.project_name }}</a><br>{{ item.created_at }}<br>{{ item.id|truncatechars:12 }}</th>{% endfor %}</tr></thead><tbody>
+    <tr><th>Status</th>{% for item in estimates %}<td>{{ item.status }}</td>{% endfor %}</tr>
+    <tr><th>Estimated production cost</th>{% for item in estimates %}<td>{{ item.currency }} {{ item.production_cost|default:item.known_partial_cost|default:"Incomplete" }}</td>{% endfor %}</tr>
+    <tr><th>Suggested selling price</th>{% for item in estimates %}<td>{{ item.currency }} {{ item.suggested_selling_price|default:"—" }}</td>{% endfor %}</tr>
+    <tr><th>Estimated gross profit</th>{% for item in estimates %}<td>{{ item.currency }} {{ item.gross_profit|default:"—" }}</td>{% endfor %}</tr>
+    <tr><th>Estimated gross margin</th>{% for item in estimates %}<td>{{ item.gross_margin_percentage|default:"—" }}%</td>{% endfor %}</tr>
+    <tr><th>Model versions / workflows / methods</th>{% for item in estimates %}<td>{% for model in item.models %}{{ model.provider }} · {{ model.name }} v{{ model.version }} ({{ model.workflow|default:"any workflow" }}, {{ model.pricing_method }})<br>{% empty %}—{% endfor %}</td>{% endfor %}</tr>
+    <tr><th>All saved assumptions and pricing snapshots</th>{% for item in estimates %}<td><details><summary>Show inputs and historical result</summary><pre class="snapshot">Inputs:
+{{ item.input_snapshot|pprint }}
+Saved result:
+{{ item.result_snapshot|pprint }}</pre></details></td>{% endfor %}</tr>
+  </tbody></table>
+  {% else %}<p>Select two or more estimates from a project history to compare.</p>{% endif %}
+</section>
+{% endblock %}

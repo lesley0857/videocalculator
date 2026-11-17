@@ -324,3 +324,44 @@ class ClipPlannerWebEndpointTests(TestCase):
         resp_idx = self.client.get(reverse('calculators:index'))
         self.assertEqual(resp_idx.status_code, 200)
 
+    def test_tie_breaking_order_independence(self):
+        # Narration needing 25 words at 150 WPM (10s clip is 25 words, two 5s clips is 24 words -> needs 10s or 5s+5s+5s)
+        # Compare passing [5, 10, 15] vs [15, 10, 5]
+        opts_asc = [ClipOption(5), ClipOption(10), ClipOption(15)]
+        opts_desc = [ClipOption(15), ClipOption(10), ClipOption(5)]
+        seq1 = optimize_clip_sequence(25, 150, opts_asc)
+        seq2 = optimize_clip_sequence(25, 150, opts_desc)
+        self.assertEqual([o.duration_seconds for o in seq1], [o.duration_seconds for o in seq2])
+
+    def test_plan_summary_metrics_contains_distinct_unused_metrics(self):
+        # 2 words at 120 WPM = 1.00s speech
+        # Clip of 10s with 1s reserved = 9s usable
+        clip = ClipOption(duration_seconds=10, reserved_seconds=Decimal("1.00"))
+        metrics = calculate_plan_summary_metrics(word_count=2, wpm=120, clip_options=[clip])
+        self.assertEqual(metrics["total_generated_duration_seconds"], "10.00")
+        self.assertEqual(metrics["total_reserved_duration_seconds"], "1.00")
+        self.assertEqual(metrics["total_usable_narration_duration_seconds"], "9.00")
+        self.assertEqual(metrics["total_speech_duration_seconds"], "1.00")
+        self.assertEqual(metrics["total_unused_narration_duration_seconds"], "8.00")
+        self.assertEqual(metrics["total_unused_generated_duration_seconds"], "9.00")
+        self.assertEqual(metrics["total_unused_duration_seconds"], "9.00")
+        self.assertIn("average_clip_utilisation_percentage", metrics)
+
+    def test_api_invalid_sentence_boundary_tolerance_returns_400(self):
+        payload = {
+            "narration": "Hello world this is a test script.",
+            "wpm": 150,
+            "segmentation": {
+                "sentence_boundary_tolerance": 2.5,  # > 1.0
+            },
+        }
+        response = self.client.post(
+            self.api_url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data["success"])
+        self.assertIn("sentence_boundary_tolerance", data["error"])
+

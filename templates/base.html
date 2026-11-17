@@ -6,15 +6,51 @@
     <title>{% block title %}Video Calculator Platform{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/workspace.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <header class="site-header">
         <div class="container">
             <a href="{% url 'home' %}" class="logo">Video Calculator</a>
-            <nav class="nav-links">
+            <nav class="nav-links" aria-label="Main navigation">
                 <a href="{% url 'products:list' %}">Products</a>
                 <a href="{% url 'calculators:index' %}">Calculators</a>
+                <a href="{% url 'calculators:talking-flyer' %}">Talking Flyer</a>
+                <a href="{% url 'calculators:video-generation' %}">Video Generation</a>
+                <details class="site-menu">
+                    <summary>All pages</summary>
+                    <div class="site-menu-panel">
+                        <a href="{% url 'home' %}">Home</a>
+                        <a href="{% url 'products:list' %}">Products</a>
+                        <a href="{% url 'calculators:index' %}">Calculators</a>
+                        <span class="site-menu-heading">Talking Flyer</span>
+                        <a href="{% url 'calculators:talking-flyer' %}">Talking Flyer Calculator</a>
+                        <a href="{% url 'calculators:video-generation' %}">Video Generation Calculator</a>
+                        <span class="site-menu-heading">AI video</span>
+                        <a href="{% url 'pricing:test-interface' %}">Production cost estimate</a>
+                        {% if user.is_authenticated %}
+                            <span class="site-menu-heading">My workspace</span>
+                            <a href="{% url 'workspace:dashboard' %}">Dashboard</a>
+                            <a href="{% url 'workspace:project-list' %}">Projects</a>
+                            <a href="{% url 'workspace:project-create' %}">Create project</a>
+                            <a href="{% url 'workspace:estimate-compare' %}">Compare estimates</a>
+                            <a href="{% url 'accounts:profile' %}">Account profile</a>
+                            {% if user.is_staff %}<span class="site-menu-heading">Administration</span><a href="/admin/">Django admin</a>{% endif %}
+                        {% else %}
+                            <span class="site-menu-heading">Account</span>
+                            <a href="{% url 'accounts:login' %}">Sign in</a>
+                            <a href="{% url 'accounts:register' %}">Create account</a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'workspace:dashboard' %}">My workspace</a>
+                    <form method="post" action="{% url 'accounts:logout' %}" class="nav-logout">{% csrf_token %}<button type="submit">Sign out</button></form>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}">Sign in</a>
+                    <a href="{% url 'accounts:register' %}">Create account</a>
+                {% endif %}
             </nav>
         </div>
     </header>

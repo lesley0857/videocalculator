@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{% if video_generation_mode %}Video Generation Calculator{% else %}AI video production cost calculator{% endif %} | Video Calculator{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/pricing.css' %}">{% if video_generation_mode %}<link rel="stylesheet" href="{% static 'css/video_generation.css' %}">{% endif %}{% endblock %}
+{% block content %}
+<main class="pricing-page {% if video_generation_mode %}video-generation-page{% endif %}" id="pricing-app" data-calculator-type="{% if video_generation_mode %}video_generation{% else %}general{% endif %}" data-specialties-url="{% url 'video_registry:specialty-list' %}" data-providers-url="{% url 'video_registry:provider-list' %}" data-offerings-url="{% url 'video_registry:offering-list' %}" data-routes-url="{% url 'video_registry:access-route-list' %}" data-models-url="{% url 'video_registry:model-list' %}" data-project-id="{{ workspace_project_id|default:'' }}" data-resume="{{ resume_estimate|yesno:'true,false' }}" data-calc-url="{% url 'pricing:estimate' %}" data-login-url="{% url 'accounts:login' %}">
+  {% csrf_token %}
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="{% url 'home' %}">Home</a> › <a href="{% url 'calculators:index' %}">Calculators</a> › <span>{% if video_generation_mode %}Video Generation{% else %}Production cost{% endif %}</span></nav>
+  <header class="pricing-intro"><p class="eyebrow">Pre-production planning SaaS</p><h1>{% if video_generation_mode %}Video Generation Calculator{% else %}AI video production cost calculator{% endif %}</h1><p>{% if video_generation_mode %}Describe the video, prepare a script yourself or with an external AI assistant, plan scenes, choose configured video models and supporting tools, and estimate the full cost before production. The platform does not generate video or scripts.{% else %}Build a cost estimate from registered models, workflows, pricing and optional service assumptions. Results are planning estimates, not provider quotes or observed usage.{% endif %}</p></header>
+  {% if video_generation_mode %}<nav class="vg-progress" aria-label="Video Generation steps"><a href="#vg-brief-title">1 · Brief and script</a><a href="#vg-scenes-title">2 · Scenes</a><a href="#model-config-heading">3 · Model</a><a href="#operations-heading">4 · Optional services</a><a href="#production-heading">5 · Overheads</a><a href="#commercial-heading">6 · Review and calculate</a></nav>{% endif %}
+  {% if video_generation_mode and source_estimate %}<aside class="pricing-notice">Reusing saved estimate {{ source_estimate.pk }} as a starting point. Changes will create a new calculation and will not overwrite its history.</aside>{% endif %}
+  {% if video_generation_mode %}
+  <section class="pricing-panel vg-brief" aria-labelledby="vg-brief-title">
+    <div class="section-heading"><span class="step-number">1</span><div><h2 id="vg-brief-title">Describe your video</h2><p>These are your project assumptions, not generation commands.</p></div></div>
+    <div class="pricing-fields">
+      <label>Video title<input id="vg-title" maxlength="160" placeholder="e.g. Product launch story"></label>
+      <label>Video brief <span class="required">required</span><textarea id="vg-brief" rows="4" maxlength="4000" required placeholder="What should this video communicate?"></textarea></label>
+      <label>Purpose<input id="vg-purpose" maxlength="500" placeholder="Awareness, tutorial, product demo…"></label>
+      <label>Target audience<input id="vg-audience" maxlength="500" placeholder="Who is this for?"></label>
+      <label>Platform or destination<input id="vg-platform" maxlength="160" placeholder="Website, social platform, internal training…"></label>
+      <label>Target aspect ratio<input id="vg-aspect" maxlength="80" placeholder="Choose a supported model option later"></label>
+      <label>Desired output resolution<input id="vg-resolution" maxlength="80" placeholder="Choose a supported model option later"></label>
+      <label>Target finished duration (seconds)<input id="vg-finished-duration" type="number" min="0.001" step="0.001" required></label>
+      <label>Visual style<input id="vg-style" maxlength="1000" placeholder="e.g. documentary, clean product visuals"></label>
+      <label>Additional production instructions<textarea id="vg-instructions" rows="3" maxlength="2000"></textarea></label>
+    </div>
+    <fieldset class="vg-script-method"><legend>How will you prepare the script?</legend>
+      <label><input type="radio" name="vg-script-method" value="self_written" checked> I will write my own script</label>
+      <label><input type="radio" name="vg-script-method" value="ai_assisted"> Help me prepare it with an external AI assistant</label>
+    </fieldset>
+    <div id="vg-ai-panel" hidden>
+      <div class="pricing-fields"><label for="vg-tone">Tone and style<input id="vg-tone" maxlength="500" placeholder="Warm, concise, playful…"></label><label for="vg-narrative">Narrative direction<input id="vg-narrative" maxlength="1000" placeholder="Problem → solution → invitation"></label>
+      <label for="vg-script-tool">Configured scriptwriting tool</label><select id="vg-script-tool"><option value="">Choose an active scriptwriting tool</option></select>
+      <label for="vg-script-format">Script format</label><select id="vg-script-format"><option value="scene_by_scene">Scene by scene</option><option value="voiceover">Voiceover with visual directions</option><option value="dialogue">Dialogue and action</option><option value="short_ad">Short promotional ad</option></select></div>
+      <button class="button button-secondary" id="vg-build-prompt" type="button">Prepare external prompt</button><button class="button button-secondary" id="vg-copy-prompt" type="button" disabled>Copy prompt</button>
+      <label for="vg-prompt">Prompt to use in your chosen provider</label><textarea id="vg-prompt" rows="8" readonly></textarea>
+      <p id="vg-provider-link"></p><p class="field-note">Open the provider separately, paste this prompt there, then paste its response below. This calculator does not call an AI service.</p>
+    </div>
+    <label for="vg-script">Script and scene directions</label><textarea id="vg-script" rows="8" maxlength="50000" required placeholder="Write your script or paste the text prepared externally"></textarea>
+    <label for="vg-script-directions">Additional script directions<input id="vg-script-directions" maxlength="4000" placeholder="Optional pronunciation or delivery notes"></label>
+    <p class="field-note" id="vg-script-status">Self-written script selected. No scriptwriting cost will be added.</p>
+  </section>
+  <section class="pricing-panel" aria-labelledby="vg-scenes-title">
+    <div class="section-heading"><span class="step-number">2</span><div><h2 id="vg-scenes-title">Plan scenes</h2><p>Scene duration describes the planned scene. The generation assumptions below are priced separately; generated footage can be shorter or longer than the finished edit.</p></div></div>
+    <div class="vg-scene-editor">
+      <label>Scene title<input id="vg-scene-title" maxlength="180"></label><label>Scene description<textarea id="vg-scene-description" rows="2" maxlength="2000" required></textarea></label>
+      <label>Visual direction<textarea id="vg-scene-visual" rows="2" maxlength="2000"></textarea></label><label>Camera direction<input id="vg-scene-camera" maxlength="500"></label>
+      <label>Generation prompt or instructions<textarea id="vg-scene-prompt" rows="2" maxlength="4000"></textarea></label><label>Planned scene duration (seconds)<input id="vg-scene-duration" type="number" min="0.001" step="0.001" required></label>
+      <label>Required visual assets<input id="vg-scene-assets" maxlength="1000"></label><label>Voice or audio needs<input id="vg-scene-audio" maxlength="1000"></label><label>Production notes<input id="vg-scene-notes" maxlength="1000"></label>
+    </div><button class="button button-secondary" id="vg-add-scene" type="button">Add scene</button>
+    <p id="vg-scene-total" class="vg-scene-total">No scenes planned.</p><ol id="vg-scenes" class="vg-scenes"></ol>
+  </section>
+  {% endif %}
+  <aside id="clip-plan-note" class="pricing-notice" hidden></aside>
+  {% if workspace_project %}<aside class="pricing-notice">This estimate will be saved to <a href="{% url 'workspace:project-detail' workspace_project.pk %}">{{ workspace_project.name }}</a>.</aside>{% endif %}
+  {% if not providers %}<aside class="pricing-notice" role="status"><strong>No active providers are configured.</strong> An administrator must add active provider records before customers can select a model.</aside>{% elif not models %}<aside class="pricing-notice" role="status"><strong>No active model versions are configured for the active providers.</strong> An administrator must register active model versions and compatible workflows.</aside>{% endif %}
+  {% if not pricing_count %}<aside class="pricing-notice" role="status"><strong>No effective model prices are configured.</strong> You can review the form, but a complete estimate requires effective pricing records. Missing prices are never treated as zero.</aside>{% endif %}
+
+  <section class="pricing-panel" aria-labelledby="model-config-heading">
+    <div class="section-heading"><span class="step-number">{% if video_generation_mode %}3{% else %}1{% endif %}</span><div><h2 id="model-config-heading">{% if video_generation_mode %}Choose a video-generation provider and model{% else %}Configure a production component{% endif %}</h2><p>{% if video_generation_mode %}Select specialty → provider → offering → access route → model version. The available workflow and configuration controls come from registered, verified records. No generated seconds are assumed from finished video duration.{% else %}Use one component for each model and pricing configuration. A clip plan can contain multiple durations; you can add components separately for different model choices.{% endif %}</p></div></div>
+    <div class="pricing-fields">
+      {% if video_generation_mode %}
+      <label>Production specialty<select id="vg-primary-specialty">{% for specialty in specialties %}{% if specialty.slug == 'video-generation-animation' %}<option value="{{ specialty.slug }}">{{ specialty.name }}</option>{% endif %}{% endfor %}</select></label>
+      <label>Provider<select id="vg-primary-provider" disabled><option>Choose specialty</option></select></label>
+      <label>Offering<select id="vg-primary-offering" disabled><option>Choose provider first</option></select></label>
+      <label>Access route<select id="vg-primary-route" disabled><option>Choose offering first</option></select></label>
+      {% endif %}
+      <label class="{% if video_generation_mode %}vg-legacy-provider{% endif %}">Provider<select id="provider"><option value="">{% if providers %}Choose provider{% else %}No active providers configured{% endif %}</option>{% for provider_id, provider_name in providers %}<option value="{{ provider_name }}">{{ provider_name }}</option>{% endfor %}</select></label>
+      <label>Model version<select id="model" disabled><option value="">Choose a provider first</option>{% for item in models %}<option value="{{ item.id }}" data-provider="{{ item.provider }}" data-workflows="{% for wf in item.workflows %}{{ wf.slug }}:{{ wf.name }}{% if not forloop.last %}|{% endif %}{% endfor %}">{{ item.name }} v{{ item.version }}</option>{% endfor %}</select></label>
+      <label>Workflow<select id="workflow" disabled><option value="">Choose a compatible workflow</option></select><small>Only workflows registered on this exact model version are offered. Unknown capabilities are not assumed to be supported.</small></label>
+      <label>Applicable pricing option<select id="pricing-record" disabled><option value="">Use the effective price if one applies</option></select><small>Options are filtered by the selected model, workflow and current date.</small></label>
+      <label>{% if video_generation_mode %}Scene count reference (not billed as generations){% else %}Number of clips{% endif %}<input id="clip-count" type="number" min="1" {% if not video_generation_mode %}value="1"{% endif %} inputmode="numeric"></label>
+      <label>{% if video_generation_mode %}Planned generation requests{% else %}Generation requests{% endif %}<input id="requests" type="number" min="1" {% if not video_generation_mode %}value="1"{% endif %} inputmode="numeric"><small>A customer planning assumption; scene count and generation request count are separate. No generation is started.</small></label>
+      <label>Billable duration per request (seconds)<input id="duration" type="number" min="0.001" step="0.001" {% if not video_generation_mode %}value="5"{% endif %} inputmode="decimal"><small>Billing uses the selected model's configured pricing method and minimums.</small></label>
+      <div id="vg-supported-configurations" class="{% if video_generation_mode %}vg-supported-configurations{% endif %}" {% if video_generation_mode %}hidden{% endif %}></div>
+      <label class="{% if video_generation_mode %}vg-legacy-config{% endif %}">Resolution<input id="resolution" placeholder="e.g. 1080p"></label>
+      <label class="{% if video_generation_mode %}vg-legacy-config{% endif %}">Aspect ratio<input id="aspect-ratio" placeholder="e.g. 16:9"></label>
+      <label class="{% if video_generation_mode %}vg-legacy-config{% endif %}">Generation duration setting (seconds)<input id="generation-duration" type="number" min="1" step="1" placeholder="Optional"></label>
+      <label class="{% if video_generation_mode %}vg-legacy-config{% endif %}">Audio mode<select id="audio-mode"><option value="">Not specified</option><option value="native_audio">Native audio</option><option value="video_only">Video only</option></select></label>
+      <label>Estimated additional billable attempts<input id="retries" type="number" min="0" value="0" inputmode="numeric"><small>Optional financial allowance based on registry billing assumptions, not actual retries.</small></label>
+      <label>Subscription plan<select id="subscription-plan"><option value="">No subscription assumption</option>{% for item in plans %}<option value="{{ item.id }}" data-provider-id="{{ item.provider_id }}">{{ item.provider }} · {{ item.name }}</option>{% endfor %}</select></label>
+      <label>Credits remaining<input id="credits-remaining" type="number" min="0" step="0.0001" placeholder="Only needed for credit-based pricing"></label>
+      <label>Credit cost basis<select id="credit-basis"><option value="marginal_cash">Additional cash required</option><option value="allocated_economic">Allocated subscription cost</option></select><small>Configured effective credit packages and the selected subscription plan are resolved by the pricing service.</small></label>
+    </div>
+    <div id="model-info" class="model-info" aria-live="polite">Choose a model version to see its registry and verification details.</div>
+    <button class="button button-secondary" type="button" id="add-component">Add component</button>
+  </section>
+
+  <section class="pricing-panel" aria-labelledby="components-heading">
+    <div class="section-heading"><span class="step-number">2</span><div><h2 id="components-heading">Production components</h2><p>Add a separate row for each model, workflow, or duration group you want to compare within this estimate.</p></div></div>
+    <p id="empty-components">No components added yet.</p><ul id="components" class="selection-list"></ul>
+  </section>
+
+  <section class="pricing-panel" aria-labelledby="operations-heading">
+    <div class="section-heading"><span class="step-number">{% if video_generation_mode %}4{% else %}3{% endif %}</span><div><h2 id="operations-heading">Optional services</h2><p>{% if video_generation_mode %}Add configured visual asset, voice, music or finishing services only if you plan to use them. Verified native model audio and separate narration are independent options; this calculator does not automatically charge both.{% else %}Add configured service costs, such as TTS or lip-sync, only when matching effective rates exist.{% endif %}</p></div></div>
+    <div class="pricing-fields pricing-fields-compact">
+      <label>Service<select id="operation"><option value="">No service selected</option></select></label>
+      <label>Quantity<input id="operation-quantity" type="number" min="0.001" step="0.001" value="1"></label>
+      <label>Duration seconds (if priced per second)<input id="operation-duration" type="number" min="0" step="0.001" value="0"></label>
+    </div>
+    <button class="button button-secondary" type="button" id="add-operation">Add service</button><ul id="operations" class="selection-list"></ul>
+  </section>
+
+  <section class="pricing-panel" aria-labelledby="production-heading">
+    <div class="section-heading"><span class="step-number">{% if video_generation_mode %}5{% else %}4{% endif %}</span><div><h2 id="production-heading">Production tools and project costs</h2><p>Choose tools actually used, allocate shared subscriptions across projects or hours, and add operating costs. Manual overhead entries are marked as your estimate.</p></div></div>
+    <div class="pricing-fields">
+      <label>Desired final video duration (seconds)<input id="final-duration" type="number" min="0.001" step="0.001" value="30"></label>
+      <label>Expected usable generated footage (seconds)<input id="usable-duration" type="number" min="0" step="0.001" value="{% if video_generation_mode %}0{% else %}30{% endif %}"><small>This is your usable footage assumption. It is separate from generated duration and finished duration.</small></label>
+      <label>Production hours for this project<input id="project-hours" type="number" min="0" step="0.1" value="0"></label>
+      {% if video_generation_mode %}<label>Optional production specialty<select id="vg-optional-specialty"><option value="">Select a specialty (optional)</option>{% for specialty in specialties %}<option value="{{ specialty.slug }}">{{ specialty.name }}</option>{% endfor %}</select></label><label>Specialty provider<select id="vg-optional-provider" disabled><option>Choose a specialty first</option></select></label><label>Provider offering<select id="vg-optional-offering" disabled><option>Choose a provider first</option></select></label>{% endif %}
+      <label>Production tool<select id="tool-choice"><option value="">Select an optional tool</option></select></label>
+      <label>Subscription plan / allocation<select id="tool-subscription"><option value="">No subscription selected</option></select></label>
+      <label>Usage price<select id="tool-usage"><option value="">No usage price selected</option></select></label>
+      <label>Activities covered<input id="tool-activities" placeholder="Choose a tool first; comma-separated activities"></label>
+      <label>Usage quantity (e.g. characters)<input id="tool-quantity" type="number" min="0" step="1" value="0"></label>
+      <label>Included allowance remaining<input id="tool-allowance" type="number" min="0" step="1" placeholder="Uses plan allowance when blank"></label>
+      <label>Subscription purchased specifically for this project<input id="tool-purchased" type="checkbox"></label>
+      <button class="button button-secondary" type="button" id="add-tool">Add production tool</button>
+    </div>
+    <ul id="production-tools" class="selection-list"></ul>
+    <div class="pricing-fields pricing-fields-compact">
+      <label>Overhead category<select id="overhead-category">{% for value, label in overhead_categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>Configured rate<select id="overhead-price"><option value="">Manual project estimate</option></select></label>
+      <label>Quantity for selected rate<input id="overhead-quantity" type="number" min="0" step="0.001" placeholder="Optional"></label>
+      <label>Manual amount in output currency<input id="overhead-amount" type="number" min="0" step="0.01" placeholder="Optional"></label>
+      <label>Overhead name<input id="overhead-name" placeholder="e.g. Electricity allocation"></label>
+      <button class="button button-secondary" type="button" id="add-overhead">Add overhead</button>
+    </div>
+    <ul id="overheads" class="selection-list"></ul>
+  </section>
+
+  <section class="pricing-panel" aria-labelledby="commercial-heading">
+    <div class="section-heading"><span class="step-number">{% if video_generation_mode %}6{% else %}4{% endif %}</span><div><h2 id="commercial-heading">Commercial assumptions</h2><p>Choose one selling-price method. Markup is calculated on cost; target margin is the share of selling price left after estimated cost.</p></div></div>
+    <div class="pricing-fields pricing-fields-compact">
+      <label>Output currency<select id="currency">{% for code in currencies %}<option value="{{ code }}">{{ code }}</option>{% endfor %}</select></label>
+      <label>Markup (%)<input id="markup" type="number" min="0" step="0.01" placeholder="Optional"></label>
+      <label>Target gross margin (%)<input id="margin" type="number" min="0" max="99.99" step="0.01" placeholder="Optional"></label>
+      {% if user.is_authenticated and not workspace_project %}<label>Save to project<select id="project"><option value="">Calculate without saving</option>{% for project in workspace_projects %}<option value="{{ project.pk }}">{{ project.name }}</option>{% endfor %}</select></label>{% endif %}
+    </div>
+    {% if user.is_authenticated and not workspace_project and not workspace_projects %}<p class="field-note">Create a project before saving estimates. <a id="new-project-for-estimate" href="{% url 'workspace:project-create' %}?next={% if video_generation_mode %}%2Fcalculators%2Fvideo-generation%2F{% else %}%2Fpricing%2Ftest%2F{% endif %}%3Fresume%3D1">Create a project</a></p>{% endif %}
+    <p class="field-note">Contingency is not included because the current pricing engine does not support a contingency input.</p>
+    <button class="button button-primary" type="button" id="calculate">Calculate estimate</button>
+    <p id="message" class="status-message" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="result-panel" class="pricing-panel result-panel" aria-labelledby="result-heading" hidden>
+    <div class="section-heading"><span class="step-number">✓</span><div><h2 id="result-heading">Estimate result</h2><p id="result-status"></p></div></div>
+    <div id="result-summary" class="result-summary"></div>
+    <details><summary>Calculation details</summary><div id="result-details" class="result-details"></div></details>
+    <p id="save-result-note" class="field-note"></p>
+  </section>
+  <p class="pricing-bottom-links">{% if user.is_authenticated %}<a href="{% url 'workspace:dashboard' %}">My workspace</a> · <a href="{% url 'workspace:estimate-compare' %}">Compare saved estimates</a>{% else %}<a href="{% url 'accounts:login' %}">Sign in</a> · <a href="{% url 'accounts:register' %}">Create account</a>{% endif %}</p>
+</main>
+{{ starting_inputs|default_if_none:"null"|json_script:"starting-inputs" }}
+{{ models|json_script:"registered-models" }}
+{{ tools|json_script:"production-tools-data" }}
+{{ overheads|json_script:"production-overheads-data" }}
+<script src="{% static 'js/production_cost.js' %}" defer></script>
+{% endblock %}

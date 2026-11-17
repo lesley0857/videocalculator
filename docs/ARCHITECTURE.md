@@ -78,7 +78,7 @@ must use `settings.AUTH_USER_MODEL` in model `ForeignKey` declarations and
 - Catalogue query services: `get_active_products()`, `get_product_by_slug()`.
 
 **Does not own:**
-- Pricing rules → will live in `products` or a future `pricing` module when needed.
+- AI model and production-operation pricing → belongs to `pricing`; retail product prices remain part of the product catalogue.
 - Access decisions → belongs to `entitlements`.
 - Order creation → belongs to `orders`.
 - Calculator logic → belongs to `calculators`.
@@ -236,6 +236,56 @@ entitlement service code — call the notifications service and return.
 additions to a service function. They must never block a business-critical code path
 or raise exceptions that propagate to the caller.
 
+### 2.10 `video_registry` — AI video provider and capability catalogue
+
+**Owns:** normalized `Specialty`, `Provider`, provider-scoped `ProviderOffering`,
+`AccessRoute`, version-specific `VideoModel`, controlled `Workflow`, structured
+`Capability`, traceable `Evidence`, and append-only `CapabilityRevision` records.
+Read-only query and serialization services live in `apps/video_registry/services.py`;
+public JSON endpoints live under `/api/video-registry/`.
+
+Specialties classify providers and offerings; workflows remain a separate production
+process vocabulary. Model versions retain their provider and may link to offerings;
+access routes explicitly link to both an offering and applicable model versions.
+Customer selection endpoints filter inactive records and expose only verified
+capability choices. Provider/product and plan/pricing catalogue entries are not
+seeded because their current commercial relationships require verification. The
+only seeded catalogue rows are the six initial specialty categories.
+
+**Dependency rule:** the registry has no dependency on calculators or provider SDKs.
+Calculation engines remain provider independent. `PROTECT` relationships retain
+identities referenced by future pricing and historical data.
+
+### 2.11 `pricing` — effective-dated prices and production cost estimates
+
+**Owns:** model-version pricing (optionally scoped to an access route), reusable
+operation rates, offering-linked subscription plans,
+credit packages, historical exchange rates, immutable estimate snapshots, and the
+pure `ProductionCostEngine`. The service layer resolves current or historical rates
+from `video_registry`; the API and development interface are mounted at `/pricing/`.
+
+**Dependency rule:** pricing references registry identities directly. Registry
+access routes refer to subscription plans by a lazy model relationship. The registry
+selection service imports pricing only inside plan-selection functions, avoiding a
+module import cycle. Pricing also stores the optional workspace `Project` relation.
+It does not call provider APIs or modify calculation engines.
+
+### 2.12 `workspace` — user-owned planning projects and estimate history
+
+**Owns:** authenticated user projects, active/archive lifecycle, ownership-scoped
+project and estimate-history services, and safe comparisons of saved pricing
+snapshots. It invokes the existing pricing service to create each new estimate;
+it does not contain a second cost engine or create production jobs.
+
+The customer-facing Talking Flyer route lives in `calculators` and composes the
+existing narration/clip services with registry selection and pricing. Save context
+is session-scoped until the authenticated owner chooses a project; estimate ownership
+continues to be assigned by the server.
+
+**Dependency rule:** workspace projects belong to `accounts.User`; workspace
+estimate creation reuses the pricing service. Historical estimate detail reads
+saved snapshots and never resolves current prices again.
+
 ---
 
 ## 3. Dependency rules
@@ -253,6 +303,9 @@ devices     → accounts (via settings.AUTH_USER_MODEL)
 calculators → accounts (via settings.AUTH_USER_MODEL), products
 notifications → accounts (via settings.AUTH_USER_MODEL)
 analytics   → accounts (via settings.AUTH_USER_MODEL)
+video_registry → Django built-ins only
+workspace   → accounts (via the custom user model), pricing services
+pricing     → video_registry identities, workspace.Project foreign key
 ```
 
 **Forbidden imports:**
