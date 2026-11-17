@@ -4,6 +4,7 @@ Production settings for videocalculatorproject.
 
 import os
 from psycopg.conninfo import conninfo_to_dict
+from django.core.exceptions import ImproperlyConfigured
 from .base import *
 
 DEBUG = False
@@ -20,35 +21,28 @@ if not secret_key_env or secret_key_env.startswith('django-insecure'):
     raise ValueError("A secure SECRET_KEY must be provided in production via environment variable.")
 SECRET_KEY = secret_key_env
 
-# Render exposes managed PostgreSQL connection details as DATABASE_URL. Keep
-# support for the existing DB_* configuration used by manual deployments.
+# Production must use the PostgreSQL URL configured by the hosting environment.
 database_url = os.getenv('DATABASE_URL')
-if database_url:
-    database_options = conninfo_to_dict(database_url)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': database_options.pop('dbname', ''),
-            'USER': database_options.pop('user', ''),
-            'PASSWORD': database_options.pop('password', ''),
-            'HOST': database_options.pop('host', ''),
-            'PORT': database_options.pop('port', ''),
-            'OPTIONS': database_options,
-            'CONN_MAX_AGE': 600,
-            'CONN_HEALTH_CHECKS': True,
-        }
+if not database_url or not database_url.strip():
+    raise ImproperlyConfigured(
+        'DATABASE_URL must be configured for production.'
+    )
+
+database_options = conninfo_to_dict(database_url)
+database_options.setdefault('sslmode', 'require')
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': database_options.pop('dbname', ''),
+        'USER': database_options.pop('user', ''),
+        'PASSWORD': database_options.pop('password', ''),
+        'HOST': database_options.pop('host', ''),
+        'PORT': database_options.pop('port', ''),
+        'OPTIONS': database_options,
+        'CONN_MAX_AGE': 600,
+        'CONN_HEALTH_CHECKS': True,
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'videocalculator_prod'),
-            'USER': os.environ.get('DB_USER', 'postgres'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-        }
-    }
+}
 
 # Security hardening
 SECURE_BROWSER_XSS_FILTER = True
