@@ -365,3 +365,16 @@ The following decisions have been confirmed:
 - **No secrets in code.** All credentials come from environment variables.
 
 Full standards: [docs/DEVELOPMENT_STANDARDS.md](docs/DEVELOPMENT_STANDARDS.md)
+# Production deployment database initialization
+
+Render's `bash build.sh` deployment flow installs production dependencies, collects static files, applies all Django migrations, then runs:
+
+```bash
+python manage.py seed_initial_data --noinput
+```
+
+The initializer verifies that the configured database is reachable and migrations are complete. On PostgreSQL it also checks that `pricing_productiontool.offering_id` references `video_registry_provideroffering(id)`. A failed check or seed exits the build with an error. It reuses `populate_researched_catalogue` with its explicit `--apply` mode; that importer only creates missing catalog rows and leaves existing values and manually maintained pricing untouched. Repeated deployments are safe and do not create duplicate catalogue records.
+
+The reviewed catalogue includes the specialty and workflow reference data established by migrations; OpenAI/ChatGPT and API, Anthropic/Claude and API, Google Gemini API and Gemini Enterprise Agent Platform offerings, Gemini Omni Flash and Veo 3.1 model versions, their documented routes, capabilities and evidence, researched subscription plan records, inactive derived Gemini API pricing, verified Google Cloud Veo generation pricing, and verified ElevenLabs production tools and usage prices. US listed ChatGPT Plus, Claude Pro, Canva Pro, and CapCut Pro subscription prices remain inactive pending localized verification. Kling is excluded because a reliable first-party offering/pricing source was not available. No other unverified model, price, subscription availability, or capability is seeded.
+
+Render must provide `DATABASE_URL`, `SECRET_KEY`, and `ALLOWED_HOSTS` as configured by the production settings. No administrator account is created during deployment: there is no safe default identity or credential, and deployment should not alter existing administrator accounts. No additional seed-specific environment variables are required.

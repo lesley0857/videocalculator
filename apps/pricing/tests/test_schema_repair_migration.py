@@ -47,3 +47,12 @@ class ProductionToolOfferingColumnRepairTests(TransactionTestCase):
                 )
             }
         self.assertIn('offering_id', columns)
+        with connection.cursor() as cursor:
+            constraints = connection.introspection.get_constraints(
+                cursor, ProductionTool._meta.db_table
+            )
+        self.assertTrue(any(
+            'offering_id' in constraint.get('columns', [])
+            and constraint.get('foreign_key') == ('video_registry_provideroffering', 'id')
+            for constraint in constraints.values()
+        ))
