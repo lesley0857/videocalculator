@@ -439,9 +439,9 @@ class SubscriptionPlan(EffectivePricingRecord):
         constraints = EffectivePricingRecord.Meta.constraints + [
             models.CheckConstraint(condition=Q(subscription_price__gte=0) & (Q(included_credits__isnull=True) | Q(included_credits__gt=0)), name='subscription_plan_valid_amounts'),
             models.CheckConstraint(condition=(Q(additional_credit_quantity__isnull=True) & Q(additional_credit_price__isnull=True)) | (Q(additional_credit_quantity__isnull=False) & Q(additional_credit_price__isnull=False)), name='subscription_addons_both_or_neither'),
+            models.UniqueConstraint(fields=('provider_offering', 'slug'), condition=~Q(slug=''), name='uniq_offering_plan_slug'),
         ]
-        indexes = [models.Index(fields=('provider', 'is_active', 'effective_from')),
-                   models.UniqueConstraint(fields=('provider_offering', 'slug'), condition=~Q(slug=''), name='uniq_offering_plan_slug')]
+        indexes = [models.Index(fields=('provider', 'is_active', 'effective_from'))]
 
     def clean(self):
         super().clean()

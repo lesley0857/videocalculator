@@ -77,9 +77,9 @@ class Migration(migrations.Migration):
             name='included_credits',
             field=models.DecimalField(blank=True, decimal_places=4, max_digits=18, null=True),
         ),
-        migrations.AddIndex(
+        migrations.AddConstraint(
             model_name='subscriptionplan',
-            index=models.UniqueConstraint(condition=models.Q(('slug', ''), _negated=True), fields=('provider_offering', 'slug'), name='uniq_offering_plan_slug'),
+            constraint=models.UniqueConstraint(condition=models.Q(('slug', ''), _negated=True), fields=('provider_offering', 'slug'), name='uniq_offering_plan_slug'),
         ),
         migrations.AddConstraint(
             model_name='modelpricing',
